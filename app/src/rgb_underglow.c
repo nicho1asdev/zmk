@@ -39,7 +39,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #define HUE_MAX 360
 #define SAT_MAX 100
-#define BRT_MAX 100
+#define BRT_MAX 10
 
 BUILD_ASSERT(CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN <= CONFIG_ZMK_RGB_UNDERGLOW_BRT_MAX,
              "ERROR: RGB underglow maximum brightness is less than minimum brightness");
@@ -180,7 +180,7 @@ static void zmk_rgb_underglow_effect_swirl(void) {
 static void zmk_rgb_underglow_effect_white_except_caps(void) {
     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
         struct led_rgb color = { .r = 255, .g = 255, .b = 255 }; // White
-        if (i == 5) { // Index 5 is assumed to be the Caps Lock LED
+        if (i == 30) { // Index 5 is assumed to be the Caps Lock LED
             color.r = 0;
             color.g = 255;
             color.b = 0;
