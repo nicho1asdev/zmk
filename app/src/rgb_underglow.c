@@ -49,6 +49,7 @@ enum rgb_underglow_effect {
     UNDERGLOW_EFFECT_BREATHE,
     UNDERGLOW_EFFECT_SPECTRUM,
     UNDERGLOW_EFFECT_SWIRL,
+    UNDERGLOW_EFFECT_CAPS_INDICATOR,
     UNDERGLOW_EFFECT_NUMBER // Used to track number of underglow effects
 };
 
@@ -163,6 +164,7 @@ static void zmk_rgb_underglow_effect_spectrum(void) {
     state.animation_step = state.animation_step % HUE_MAX;
 }
 
+
 static void zmk_rgb_underglow_effect_swirl(void) {
     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
         struct zmk_led_hsb hsb = state.color;
@@ -173,6 +175,18 @@ static void zmk_rgb_underglow_effect_swirl(void) {
 
     state.animation_step += state.animation_speed * 2;
     state.animation_step = state.animation_step % HUE_MAX;
+}
+
+static void zmk_rgb_underglow_effect_white_except_caps(void) {
+    for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+        struct led_rgb color = { .r = 255, .g = 255, .b = 255 }; // White
+        if (i == 5) { // Index 5 is assumed to be the Caps Lock LED
+            color.r = 0;
+            color.g = 255;
+            color.b = 0;
+        }
+        pixels[i] = color;
+    }
 }
 
 static void zmk_rgb_underglow_tick(struct k_work *work) {
@@ -188,6 +202,9 @@ static void zmk_rgb_underglow_tick(struct k_work *work) {
         break;
     case UNDERGLOW_EFFECT_SWIRL:
         zmk_rgb_underglow_effect_swirl();
+        break;
+    case UNDERGLOW_EFFECT_CAPS_INDICATOR:
+        zmk_rgb_underglow_effect_white_except_caps();
         break;
     }
 
