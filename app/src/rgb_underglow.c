@@ -179,10 +179,10 @@ static void zmk_rgb_underglow_effect_swirl(void) {
 
 static void zmk_rgb_underglow_effect_white_except_caps(void) {
     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
-        struct led_rgb color = { .r = 255, .g = 255, .b = 255 }; // White
+        struct led_rgb color = { .r = 25, .g = 25, .b = 25 }; // White
         if (i == 30) { // Index 5 is assumed to be the Caps Lock LED
             color.r = 0;
-            color.g = 255;
+            color.g = 25;
             color.b = 0;
         }
         pixels[i] = color;
