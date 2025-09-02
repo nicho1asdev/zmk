@@ -48,7 +48,9 @@ static void apply_from_flags(zmk_hid_indicators_t flags) {
 
 /* Listener callback: we ignore payload details and read the current profile. */
 static int capslock_rgb_listener(const zmk_event_t *eh) {
-    ZMK_EVENT_RAISE_CHECK(zmk_hid_indicators_changed, eh);
+    if (!as_zmk_hid_indicators_changed(eh)) {
+        return 0; /* Not our event */
+    }
     apply_from_flags(zmk_hid_indicators_get_current_profile());
     return 0;
 }
