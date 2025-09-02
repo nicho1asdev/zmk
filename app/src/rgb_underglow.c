@@ -71,6 +71,14 @@ static struct rgb_underglow_state state;
 static const struct device *const ext_power = DEVICE_DT_GET(DT_INST(0, zmk_ext_power_generic));
 #endif
 
+#pragma once
+#include <zephyr/types.h>
+#include <stdbool.h>
+
+/* Expose a stable API to set an effect by index and query power state. */
+int  zmk_rgb_underglow_set_effect(uint8_t idx);
+bool zmk_rgb_underglow_is_on(void);
+
 static struct zmk_led_hsb hsb_scale_min_max(struct zmk_led_hsb hsb) {
     hsb.b = CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN +
             (CONFIG_ZMK_RGB_UNDERGLOW_BRT_MAX - CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN) * hsb.b / BRT_MAX;
@@ -507,6 +515,18 @@ static int rgb_underglow_auto_state(bool target_wake_state) {
         sleep_state.rgb_state_before_sleeping = state.on;
         return zmk_rgb_underglow_off();
     }
+}
+
+/* Public helpers for other modules (capslock listener, etc.) */
+int zmk_rgb_underglow_set_effect(uint8_t idx) {
+    if (!led_strip) { return -ENODEV; }
+    state.current_effect = idx % UNDERGLOW_EFFECT_NUMBER;
+    state.animation_step = 0;
+    return 0;
+}
+
+bool zmk_rgb_underglow_is_on(void) {
+    return state.on;
 }
 
 static int rgb_underglow_event_listener(const zmk_event_t *eh) {
