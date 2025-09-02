@@ -14,6 +14,11 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/rgb_underglow.h>
 #include <zephyr/sys/util.h> /* BIT() */
 
+#include <stdint.h>
+int  zmk_rgb_underglow_set_effect(uint8_t idx);
+bool zmk_rgb_underglow_is_on(void);
+
+
 #ifndef ZMK_LED_NUMLOCK_BIT
 #define ZMK_LED_NUMLOCK_BIT  BIT(0)
 #endif
