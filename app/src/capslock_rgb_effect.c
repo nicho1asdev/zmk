@@ -12,6 +12,17 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/hid_indicators.h>
 #include <zmk/hid_indicators_types.h>
 #include <zmk/rgb_underglow.h>
+#include <zephyr/sys/util.h> /* BIT() */
+
+#ifndef ZMK_LED_NUMLOCK_BIT
+#define ZMK_LED_NUMLOCK_BIT  BIT(0)
+#endif
+#ifndef ZMK_LED_CAPSLOCK_BIT
+#define ZMK_LED_CAPSLOCK_BIT BIT(1)
+#endif
+#ifndef ZMK_LED_SCROLLLOCK_BIT
+#define ZMK_LED_SCROLLLOCK_BIT BIT(2)
+#endif
 
 /* Configure which effects to use (indices match ZMK's built-in list). */
 #ifndef CONFIG_ZMK_CAPSLOCK_RGB_EFF_ON
