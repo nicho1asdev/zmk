@@ -44,11 +44,17 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 BUILD_ASSERT(CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN <= CONFIG_ZMK_RGB_UNDERGLOW_BRT_MAX,
              "ERROR: RGB underglow maximum brightness is less than minimum brightness");
 
+// enum rgb_underglow_effect {
+//     UNDERGLOW_EFFECT_SOLID,
+//     UNDERGLOW_EFFECT_BREATHE,
+//     UNDERGLOW_EFFECT_SPECTRUM,
+//     UNDERGLOW_EFFECT_SWIRL,
+//     UNDERGLOW_EFFECT_CAPS_INDICATOR,
+//     UNDERGLOW_EFFECT_NUMBER // Used to track number of underglow effects
+// };
+
 enum rgb_underglow_effect {
-    UNDERGLOW_EFFECT_SOLID,
-    UNDERGLOW_EFFECT_BREATHE,
-    UNDERGLOW_EFFECT_SPECTRUM,
-    UNDERGLOW_EFFECT_SWIRL,
+    UNDERGLOW_EFFECT_WHITE,
     UNDERGLOW_EFFECT_CAPS_INDICATOR,
     UNDERGLOW_EFFECT_NUMBER // Used to track number of underglow effects
 };
@@ -198,6 +204,14 @@ static void zmk_rgb_underglow_effect_white_except_caps(void) {
     }
 }
 
+static void zmk_rgb_underglow_effect_white(void) {
+    for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+        // white at 20% brightness
+        struct led_rgb color = { .r = 255/20, .g = 255/20, .b = 255/20 }; // White at low brightness
+        pixels[i] = color;
+    }
+}
+
 static void zmk_rgb_underglow_tick(struct k_work *work) {
     switch (state.current_effect) {
     case UNDERGLOW_EFFECT_SOLID:
@@ -214,6 +228,9 @@ static void zmk_rgb_underglow_tick(struct k_work *work) {
         break;
     case UNDERGLOW_EFFECT_CAPS_INDICATOR:
         zmk_rgb_underglow_effect_white_except_caps();
+        break;
+    case UNDERGLOW_EFFECT_WHITE:
+        zmk_rgb_underglow_effect_white();
         break;
     }
 

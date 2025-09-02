@@ -23,8 +23,8 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 static void apply_from_flags(zmk_hid_indicators_t flags) {
     const bool caps_on = (flags & ZMK_LED_CAPSLOCK_BIT);
-    const uint8_t eff = caps_on ? CONFIG_ZMK_CAPSLOCK_RGB_EFF_ON
-                                : CONFIG_ZMK_CAPSLOCK_RGB_EFF_OFF;
+    const uint8_t eff = caps_on ? 1
+                                : 2;
 
     /* Set the effect regardless of power; do not change on/off state. */
     (void)zmk_rgb_underglow_set_effect(eff);
