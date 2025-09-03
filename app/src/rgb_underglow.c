@@ -206,18 +206,18 @@ static void zmk_rgb_underglow_effect_white(void) {
 
 static void zmk_rgb_underglow_tick(struct k_work *work) {
     switch (state.current_effect) {
-    case UNDERGLOW_EFFECT_SOLID:
-        zmk_rgb_underglow_effect_solid();
-        break;
-    case UNDERGLOW_EFFECT_BREATHE:
-        zmk_rgb_underglow_effect_breathe();
-        break;
-    case UNDERGLOW_EFFECT_SPECTRUM:
-        zmk_rgb_underglow_effect_spectrum();
-        break;
-    case UNDERGLOW_EFFECT_SWIRL:
-        zmk_rgb_underglow_effect_swirl();
-        break;
+    // case UNDERGLOW_EFFECT_SOLID:
+    //     zmk_rgb_underglow_effect_solid();
+    //     break;
+    // case UNDERGLOW_EFFECT_BREATHE:
+    //     zmk_rgb_underglow_effect_breathe();
+    //     break;
+    // case UNDERGLOW_EFFECT_SPECTRUM:
+    //     zmk_rgb_underglow_effect_spectrum();
+    //     break;
+    // case UNDERGLOW_EFFECT_SWIRL:
+    //     zmk_rgb_underglow_effect_swirl();
+    //     break;
     case UNDERGLOW_EFFECT_CAPS_INDICATOR:
         zmk_rgb_underglow_effect_white_except_caps();
         break;
