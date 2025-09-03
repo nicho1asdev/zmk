@@ -192,7 +192,7 @@ static void zmk_rgb_underglow_effect_white_except_caps(void) {
             color.g = 25;
             color.b = 0;
         }
-        pixels[i]; = color;
+        pixels[i] = color;
     }
 }
 
