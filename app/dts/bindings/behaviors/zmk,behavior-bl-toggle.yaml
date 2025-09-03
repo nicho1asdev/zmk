@@ -8,10 +8,8 @@ compatible: "zmk,behavior-bl-toggle"
 properties:
   label:
     type: string
+    required: true
   "#binding-cells":
     type: int
     const: 0
-
-required:
-  - label
-  - "#binding-cells"
+    required: true
