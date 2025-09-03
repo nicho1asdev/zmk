@@ -1,15 +1,13 @@
-
-
 // SPDX-License-Identifier: MIT
-// Backlight toggle behavior: toggles integrated backlight state and reapplies effect
-
-#include <zephyr/kernel.h>
 #include <zephyr/device.h>
+#include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include <zmk/behavior.h>
+#include <zmk/events/keycode_state_changed.h> // common in behaviors
 #include <zmk/caps_rgb_ctrl.h>
+
+LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 static int bl_tog_keymap_binding_pressed(struct zmk_behavior_binding *binding,
                                          struct zmk_behavior_binding_event event) {
