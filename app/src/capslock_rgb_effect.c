@@ -39,8 +39,8 @@ bool zmk_rgb_underglow_is_on(void);
 
 static void apply_from_flags(zmk_hid_indicators_t flags) {
     const bool caps_on = (flags & ZMK_LED_CAPSLOCK_BIT);
-    const uint8_t eff = caps_on ? 1
-                                : 2;
+    const uint8_t eff = caps_on ? CONFIG_ZMK_CAPSLOCK_RGB_EFF_ON
+                                : CONFIG_ZMK_CAPSLOCK_RGB_EFF_OFF;
 
     /* Set the effect regardless of power; do not change on/off state. */
     (void)zmk_rgb_underglow_set_effect(eff);
@@ -59,8 +59,7 @@ ZMK_LISTENER(capslock_rgb, capslock_rgb_listener);
 ZMK_SUBSCRIPTION(capslock_rgb, zmk_hid_indicators_changed);
 
 /* Seed the correct effect on boot. */
-static int capslock_rgb_init(const struct device *dev) {
-    ARG_UNUSED(dev);
+static int capslock_rgb_init(void) {
     apply_from_flags(zmk_hid_indicators_get_current_profile());
     return 0;
 }
