@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: MIT
+---
+title: ZMK Behavior: Backlight Toggle
+version: 0.1
+type: behavior
+compatible: "zmk,behavior-bl-toggle"
+properties:
+  label:
+    type: string
+required:
+  - label
