@@ -24,21 +24,21 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #define ZMK_LED_SCROLLLOCK_BIT BIT(2)
 #endif
 
-/* Configure which effects to use (indices match ZMK's built-in list). */
-#ifndef CONFIG_ZMK_CAPSLOCK_RGB_EFF_ON
-#define CONFIG_ZMK_CAPSLOCK_RGB_EFF_ON  0 /* Solid */
-#endif
-#ifndef CONFIG_ZMK_CAPSLOCK_RGB_EFF_OFF
-#define CONFIG_ZMK_CAPSLOCK_RGB_EFF_OFF 2 /* Spectrum */
-#endif
+#include <zmk/caps_rgb_ctrl.h>
+
+static bool s_backlight_on = true;
+
+static uint8_t select_effect(bool caps_on) {
+    if (!s_backlight_on) {
+        return caps_on ? CONFIG_ZMK_EFF_IDX_CAPS_ONLY : CONFIG_ZMK_EFF_IDX_ALL_OFF;
+    } else {
+        return caps_on ? CONFIG_ZMK_EFF_IDX_WHITE_EXCEPT_CAPS : CONFIG_ZMK_EFF_IDX_ALL_WHITE;
+    }
+}
 
 static void apply_from_flags(zmk_hid_indicators_t flags) {
     const bool caps_on = (flags & ZMK_LED_CAPSLOCK_BIT);
-    const uint8_t eff = caps_on ? CONFIG_ZMK_CAPSLOCK_RGB_EFF_ON
-                                : CONFIG_ZMK_CAPSLOCK_RGB_EFF_OFF;
-
-    /* Set the effect regardless of power; do not change on/off state. */
-    (void)zmk_rgb_underglow_select_effect(eff);
+    (void)zmk_rgb_underglow_select_effect(select_effect(caps_on));
 }
 
 /* Listener callback: we ignore payload details and read the current profile. */
@@ -52,6 +52,19 @@ static int capslock_rgb_listener(const zmk_event_t *eh) {
 
 ZMK_LISTENER(capslock_rgb, capslock_rgb_listener);
 ZMK_SUBSCRIPTION(capslock_rgb, zmk_hid_indicators_changed);
+
+void caps_rgb_set_backlight(bool on) {
+    s_backlight_on = on;
+    apply_from_flags(zmk_hid_indicators_get_current_profile());
+}
+
+bool caps_rgb_get_backlight(void) {
+    return s_backlight_on;
+}
+
+void caps_rgb_apply_from_flags(zmk_hid_indicators_t flags) {
+    apply_from_flags(flags);
+}
 
 /* Seed the correct effect on boot. */
 static int capslock_rgb_init(void) {
