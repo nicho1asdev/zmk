@@ -692,6 +692,22 @@ choice CBPRINTF_IMPLEMENTATION
 
 endchoice
 
+menu "Caps Lock RGB"
+
+config ZMK_CAPSLOCK_RGB_EFF_ON
+    int "Underglow effect when Caps Lock is ON"
+    default 1            # 0..5 (see enum in rgb_underglow.c)
+    range 0 1
+    depends on ZMK_HID_INDICATORS && ZMK_RGB_UNDERGLOW
+
+config ZMK_CAPSLOCK_RGB_EFF_OFF
+    int "Underglow effect when Caps Lock is OFF"
+    default 0
+    range 0 1
+    depends on ZMK_HID_INDICATORS && ZMK_RGB_UNDERGLOW
+
+endmenu
+
 module = ZMK
 module-str = zmk
 source "subsys/logging/Kconfig.template.log_config"
