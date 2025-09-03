@@ -14,11 +14,6 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/rgb_underglow.h>
 #include <zephyr/sys/util.h> /* BIT() */
 
-#include <stdint.h>
-int  zmk_rgb_underglow_set_effect(uint8_t idx);
-bool zmk_rgb_underglow_is_on(void);
-
-
 #ifndef ZMK_LED_NUMLOCK_BIT
 #define ZMK_LED_NUMLOCK_BIT  BIT(0)
 #endif
@@ -43,7 +38,7 @@ static void apply_from_flags(zmk_hid_indicators_t flags) {
                                 : CONFIG_ZMK_CAPSLOCK_RGB_EFF_OFF;
 
     /* Set the effect regardless of power; do not change on/off state. */
-    (void)zmk_rgb_underglow_set_effect(eff);
+    (void)zmk_rgb_underglow_select_effect(eff);
 }
 
 /* Listener callback: we ignore payload details and read the current profile. */
