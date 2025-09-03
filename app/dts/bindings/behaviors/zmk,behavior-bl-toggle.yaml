@@ -5,4 +5,13 @@ description: Backlight toggle behavior
 
 compatible: "zmk,behavior-bl-toggle"
 
-include: no_params.yaml
+properties:
+  label:
+    type: string
+  "#binding-cells":
+    type: int
+    const: 0
+
+required:
+  - label
+  - "#binding-cells"
