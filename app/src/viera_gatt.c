@@ -7,6 +7,7 @@
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/gatt.h>
 #include <zephyr/logging/log.h>
+#include <nrfx.h>
 LOG_MODULE_REGISTER(viera_gatt, CONFIG_VIERA_GATT_LOG_LEVEL);
 
 #include <string.h>
@@ -53,6 +54,15 @@ static struct bt_uuid_128 VIERA_UUID_EFF =
 __weak void viera_on_brightness_changed(uint8_t level) { ARG_UNUSED(level); }
 __weak void viera_on_effect_changed(uint8_t effect) { ARG_UNUSED(effect); }
 
+/* -------- Delayed work for reboot -------- */
+static void bootloader_work_handler(struct k_work *work)
+{
+    ARG_UNUSED(work);
+    reboot_to_bootloader();
+}
+
+static K_WORK_DELAYABLE_DEFINE(boot_work, bootloader_work_handler);
+
 /* -------- Characteristic handlers -------- */
 
 static ssize_t fwver_read(struct bt_conn *conn, const struct bt_gatt_attr *attr,
@@ -64,12 +74,11 @@ static ssize_t fwver_read(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 
 static void reboot_to_bootloader(void)
 {
-#if defined(CONFIG_HAS_NRFX) || defined(CONFIG_SOC_SERIES_NRF52X)
-    /* Persist a flag for the UF2 bootloader to pick up after reset. */
-#if NRF_POWER_HAS_GPREGRET2
-    nrf_power_gpregret_set(NRF_POWER, 0, CONFIG_VIERA_BOOT_GPREGRET_VALUE);
-#else
-    nrf_power_gpregret_set(NRF_POWER, CONFIG_VIERA_BOOT_GPREGRET_VALUE);
+#if defined(NRF_POWER)
+    /* Write magic for UF2 bootloader to read after reset. */
+    NRF_POWER->GPREGRET = CONFIG_VIERA_BOOT_GPREGRET_VALUE;
+#if defined(NRF_POWER_HAS_GPREGRET2)
+    NRF_POWER->GPREGRET2 = CONFIG_VIERA_BOOT_GPREGRET_VALUE;
 #endif
 #endif
     /* Warm reset into bootloader (bootloader checks GPREGRET). */
@@ -90,9 +99,8 @@ static ssize_t enter_write(struct bt_conn *conn, const struct bt_gatt_attr *attr
     const uint8_t *p = buf;
     if (p[0] == 0x01) {
         LOG_INF("Bootloader request received; rebooting.");
-        /* Small delay lets ATT reply finish before reset. */
-        k_work_schedule(&(struct k_work_delayable){0}, K_MSEC(10));
-        reboot_to_bootloader();
+        /* Defer reboot so the ATT write can complete cleanly. */
+        k_work_schedule(&boot_work, K_MSEC(10));
     }
     return len;
 }
