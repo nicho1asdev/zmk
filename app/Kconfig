@@ -729,6 +729,24 @@ config ZMK_EFF_IDX_WHITE_EXCEPT_CAPS
 
 endmenu
 
+# VIERA app options
+menu "VIERA Options"
+
+config VIERA_GATT_LOG_LEVEL
+    int "VIERA GATT log level (0=ERR..4=DBG)"
+    range 0 4
+    default 3
+
+config VIERA_FW_VERSION
+    string "Firmware version string"
+    default "0.1.0"
+
+config VIERA_BOOT_GPREGRET_VALUE
+    hex "UF2 bootloader GPREGRET value"
+    default 0x57
+
+endmenu
+
 module = ZMK
 module-str = zmk
 source "subsys/logging/Kconfig.template.log_config"
