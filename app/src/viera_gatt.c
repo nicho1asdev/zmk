@@ -54,6 +54,9 @@ static struct bt_uuid_128 VIERA_UUID_EFF =
 __weak void viera_on_brightness_changed(uint8_t level) { ARG_UNUSED(level); }
 __weak void viera_on_effect_changed(uint8_t effect) { ARG_UNUSED(effect); }
 
+/* Forward declaration for reboot function */
+static void reboot_to_bootloader(void);
+
 /* -------- Delayed work for reboot -------- */
 static void bootloader_work_handler(struct k_work *work)
 {
