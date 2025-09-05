@@ -84,16 +84,16 @@ static ssize_t fwver_read(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 static void reboot_to_bootloader(void)
 {
 #if defined(NRF_POWER)
-    /* Try both common UF2 magics on both GPREGRET registers */
-    NRF_POWER->GPREGRET  = 0xB1; /* Adafruit DFU/UF2 */
+    /* Set UF2 magic into both GPREGRET registers to maximize compatibility */
+    NRF_POWER->GPREGRET  = 0x57;
 #if defined(NRF_POWER_HAS_GPREGRET2)
-    NRF_POWER->GPREGRET2 = 0x57; /* Alternate UF2 magic seen in the wild */
+    NRF_POWER->GPREGRET2 = 0x57;
 #endif
 #endif
 
     /* Give the stack a moment to flush, then cold reboot */
     (void)bt_disable();
-    k_msleep(50);
+    k_msleep(100);
     sys_reboot(SYS_REBOOT_COLD);
 }
 
