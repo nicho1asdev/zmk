@@ -19,7 +19,7 @@ void viera_on_brightness_changed(uint8_t level) {
     viera_user_brightness_set(level);
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW)
     zmk_rgb_underglow_set_brt(level);
-    zmk_rgb_underglow_resume();
+    zmk_rgb_underglow_on();
 #else
     ARG_UNUSED(level);
     LOG_DBG("Underglow API not present; using master brightness only");
