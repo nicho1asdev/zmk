@@ -103,7 +103,7 @@ static ssize_t enter_write(struct bt_conn *conn, const struct bt_gatt_attr *attr
     if (p[0] == 0x01) {
         LOG_INF("Bootloader request received; rebooting.");
         /* Defer reboot so the ATT write can complete cleanly. */
-        k_work_schedule(&boot_work, K_MSEC(10));
+        k_work_schedule(&boot_work, K_MSEC(200));
     }
     return len;
 }
@@ -140,9 +140,9 @@ static ssize_t eff_write(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 BT_GATT_SERVICE_DEFINE(viera_svc,
     BT_GATT_PRIMARY_SERVICE(&VIERA_UUID_SVC.uuid),
 
-    /* Enter Bootloader: Write Without Response, 1 byte */
+    /* Enter Bootloader: Write and Write Without Response, 1 byte */
     BT_GATT_CHARACTERISTIC(&VIERA_UUID_ENTER.uuid,
-                           BT_GATT_CHRC_WRITE_WITHOUT_RESP,
+                           BT_GATT_CHRC_WRITE | BT_GATT_CHRC_WRITE_WITHOUT_RESP,
                            BT_GATT_PERM_WRITE, NULL, enter_write, NULL),
 
     /* Firmware Version: Read, UTF-8 */
