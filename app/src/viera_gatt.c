@@ -84,14 +84,27 @@ static ssize_t fwver_read(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 static void reboot_to_bootloader(void)
 {
 #if defined(NRF_POWER)
-    /* Write magic for UF2 bootloader to read after reset. */
-    NRF_POWER->GPREGRET = CONFIG_VIERA_BOOT_GPREGRET_VALUE;
+    /* Try both common UF2 magics on both GPREGRET registers */
+    NRF_POWER->GPREGRET  = 0xB1; /* Adafruit DFU/UF2 */
 #if defined(NRF_POWER_HAS_GPREGRET2)
-    NRF_POWER->GPREGRET2 = CONFIG_VIERA_BOOT_GPREGRET_VALUE;
+    NRF_POWER->GPREGRET2 = 0x57; /* Alternate UF2 magic seen in the wild */
 #endif
 #endif
-    /* Warm reset into bootloader (bootloader checks GPREGRET). */
-    sys_reboot(SYS_REBOOT_WARM);
+
+    /* Give the stack a moment to flush, then cold reboot */
+    (void)bt_disable(NULL);
+    k_msleep(50);
+    sys_reboot(SYS_REBOOT_COLD);
+}
+
+/* In enter_write(), keep the VBUS check and bump the defer a bit */
+if (p[0] == 0x01) {
+    if (!viera_usb_vbus_present()) {
+        LOG_WRN("Bootloader request ignored: USB not connected (no VBUS).");
+        return len;
+    }
+    LOG_INF("Bootloader request received; USB present → rebooting to UF2.");
+    k_work_schedule(&boot_work, K_MSEC(400)); /* was 300 ms */
 }
 
 static ssize_t enter_write(struct bt_conn *conn, const struct bt_gatt_attr *attr,
