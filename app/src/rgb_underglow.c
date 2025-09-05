@@ -26,7 +26,10 @@
 #include <zmk/events/usb_conn_state_changed.h>
 #include <zmk/workqueue.h>
 
-#include "viera_led_state.h"
+
+/* VIERA master brightness accessors (provided by viera_led_bridge.c) */
+uint8_t viera_user_brightness_get(void);
+void    viera_user_brightness_set(uint8_t v);
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
