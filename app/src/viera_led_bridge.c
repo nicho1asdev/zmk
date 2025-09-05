@@ -5,7 +5,7 @@
 LOG_MODULE_REGISTER(viera_led_bridge, CONFIG_LOG_DEFAULT_LEVEL);
 
 /* ---- Master user brightness state (0..100) ---- */
-static atomic_t g_user_brt = ATOMIC_INIT(80);
+static atomic_t g_user_brt = ATOMIC_INIT(20);
 uint8_t viera_user_brightness_get(void) { return (uint8_t)atomic_get(&g_user_brt); }
 void    viera_user_brightness_set(uint8_t v) { if (v > 100) v = 100; atomic_set(&g_user_brt, v); }
 
