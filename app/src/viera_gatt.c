@@ -8,13 +8,19 @@
 #include <zephyr/bluetooth/gatt.h>
 #include <zephyr/logging/log.h>
 #include <nrfx.h>
-LOG_MODULE_REGISTER(viera_gatt, CONFIG_VIERA_GATT_LOG_LEVEL);
 
-#include <string.h>
-
-#if defined(CONFIG_HAS_NRFX) || defined(CONFIG_SOC_SERIES_NRF52X)
-#include <hal/nrf_power.h>
+static bool viera_usb_vbus_present(void)
+{
+#if defined(NRF_POWER) && defined(POWER_USBREGSTATUS_VBUSDETECT_Msk)
+    uint32_t s = NRF_POWER->USBREGSTATUS;
+    return (s & POWER_USBREGSTATUS_VBUSDETECT_Msk) != 0u;
+#else
+    /* If USBREGSTATUS isn't available, assume present to avoid blocking updates on other SoCs. */
+    return true;
 #endif
+}
+
+LOG_MODULE_REGISTER(viera_gatt, CONFIG_VIERA_GATT_LOG_LEVEL);
 
 /* -------- Configurable knobs (via prj.conf / Kconfig) -------- */
 
@@ -101,9 +107,13 @@ static ssize_t enter_write(struct bt_conn *conn, const struct bt_gatt_attr *attr
     }
     const uint8_t *p = buf;
     if (p[0] == 0x01) {
-        LOG_INF("Bootloader request received; rebooting.");
+        if (!viera_usb_vbus_present()) {
+            LOG_WRN("Bootloader request ignored: USB not connected (no VBUS).");
+            return len;
+        }
+        LOG_INF("Bootloader request received; USB present → rebooting to UF2.");
         /* Defer reboot so the ATT write can complete cleanly. */
-        k_work_schedule(&boot_work, K_MSEC(200));
+        k_work_schedule(&boot_work, K_MSEC(300));
     }
     return len;
 }
