@@ -154,9 +154,9 @@ static void zmk_rgb_underglow_effect_white_except_caps(void) {
 }
 
 void zmk_rgb_underglow_request_refresh(void) {
-    if (!led_strip) { return; }
-    if (!state.on)  { return; }
-    k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
+    // if (!led_strip) { return; }
+    // if (!state.on)  { return; }
+    // k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
 }
 
 static void zmk_rgb_underglow_effect_all_white(void) {
