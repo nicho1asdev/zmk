@@ -26,6 +26,8 @@
 #include <zmk/events/usb_conn_state_changed.h>
 #include <zmk/workqueue.h>
 
+#include "viera_led_state.h"
+
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #if !DT_HAS_CHOSEN(zmk_underglow)
@@ -133,10 +135,15 @@ static struct led_rgb hsb_to_rgb(struct zmk_led_hsb hsb) {
 static void zmk_rgb_underglow_effect_white_except_caps(void) {
     const int caps_idx = CONFIG_ZMK_CAPS_LED_INDEX;
     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
-        struct led_rgb color = (struct led_rgb){ .r = 255/20, .g = 255/20, .b = 255/20 };
+        uint8_t ui = viera_user_brightness_get();
+        uint8_t eff = 100; // static effect brightness for white
+        uint8_t final = (uint16_t)ui * eff / 100;
+        struct led_rgb color = (struct led_rgb){ .r = final, .g = final, .b = final };
         if (i == caps_idx) {
+            uint8_t caps_eff = 100; // brightness for caps indicator
+            uint8_t caps_final = (uint16_t)ui * caps_eff / 100;
             color.r = 0;
-            color.g = 25;
+            color.g = caps_final;
             color.b = 0;
         }
         pixels[i] = color;
@@ -145,7 +152,10 @@ static void zmk_rgb_underglow_effect_white_except_caps(void) {
 
 static void zmk_rgb_underglow_effect_all_white(void) {
     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
-        pixels[i] = (struct led_rgb){ .r = 255/20, .g = 255/20, .b = 255/20 };
+        uint8_t ui = viera_user_brightness_get();
+        uint8_t eff = 100;
+        uint8_t final = (uint16_t)ui * eff / 100;
+        pixels[i] = (struct led_rgb){ .r = final, .g = final, .b = final };
     }
 }
 
@@ -160,7 +170,10 @@ static void zmk_rgb_underglow_effect_caps_only(void) {
     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
         struct led_rgb color = (struct led_rgb){ .r = 0, .g = 0, .b = 0 };
         if (i == caps_idx) {
-            color.g = 25; /* green indicator */
+            uint8_t ui = viera_user_brightness_get();
+            uint8_t eff = 100; // caps effect brightness
+            uint8_t final = (uint16_t)ui * eff / 100;
+            color.g = final; /* green indicator scaled */
         }
         pixels[i] = color;
     }
