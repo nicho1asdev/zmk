@@ -92,19 +92,9 @@ static void reboot_to_bootloader(void)
 #endif
 
     /* Give the stack a moment to flush, then cold reboot */
-    (void)bt_disable(NULL);
+    (void)bt_disable();
     k_msleep(50);
     sys_reboot(SYS_REBOOT_COLD);
-}
-
-/* In enter_write(), keep the VBUS check and bump the defer a bit */
-if (p[0] == 0x01) {
-    if (!viera_usb_vbus_present()) {
-        LOG_WRN("Bootloader request ignored: USB not connected (no VBUS).");
-        return len;
-    }
-    LOG_INF("Bootloader request received; USB present → rebooting to UF2.");
-    k_work_schedule(&boot_work, K_MSEC(400)); /* was 300 ms */
 }
 
 static ssize_t enter_write(struct bt_conn *conn, const struct bt_gatt_attr *attr,
@@ -126,7 +116,7 @@ static ssize_t enter_write(struct bt_conn *conn, const struct bt_gatt_attr *attr
         }
         LOG_INF("Bootloader request received; USB present → rebooting to UF2.");
         /* Defer reboot so the ATT write can complete cleanly. */
-        k_work_schedule(&boot_work, K_MSEC(300));
+        k_work_schedule(&boot_work, K_MSEC(400));
     }
     return len;
 }
