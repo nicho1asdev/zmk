@@ -188,10 +188,17 @@ static inline void mirror_fill_apply_fade(int idx, int age_steps, int n) {
     if (age_steps < 0) return;
     const int fade_len = 8;
     if (age_steps > fade_len) age_steps = fade_len;
-    uint8_t ui = viera_user_brightness_get() / 10; /* 0..10 */
-    uint8_t eff = (uint8_t)((age_steps * 100) / fade_len);
-    uint8_t final = (uint16_t)ui * eff / 100;      /* 0..10 */
-    struct led_rgb c = { .r = final, .g = final, .b = final };
+
+    // Master brightness 0..100
+    const int brt = viera_user_brightness_get();
+    // Fade factor 0..fade_len
+    const int eff = age_steps;
+    // Scale to 0..255: (brt/100) * (eff/fade_len) * 255
+    int pwm = (brt * eff * 255) / (100 * fade_len);
+    if (pwm < 0) pwm = 0;
+    if (pwm > 255) pwm = 255;
+
+    struct led_rgb c = { .r = (uint8_t)pwm, .g = (uint8_t)pwm, .b = (uint8_t)pwm };
     pixels[idx] = c;
 }
 
@@ -248,9 +255,9 @@ static void zmk_rgb_underglow_effect_mirror_fill(void) {
 }
 
 void zmk_rgb_underglow_request_refresh(void) {
-    // if (!led_strip) { return; }
-    // if (!state.on)  { return; }
-    // k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
+    if (!led_strip) { return; }
+    if (!state.on)  { return; }
+    k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
 }
 
 static void zmk_rgb_underglow_tick(struct k_work *work) {
