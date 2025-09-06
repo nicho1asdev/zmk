@@ -92,7 +92,7 @@ static K_WORK_DELAYABLE_DEFINE(g_startup_work, viera_startup_effect_work);
 static int viera_led_bridge_init(void) {
     k_work_init_delayable(&g_fade_work, viera_brightness_fade_work);
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW)
-    k_work_schedule(&g_startup_work, K_MSEC(10));
+    k_work_schedule(&g_startup_work, K_MSEC(50));
 #endif
     return 0;
 }
