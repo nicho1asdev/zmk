@@ -1,0 +1,13 @@
+
+
+#pragma once
+
+enum viera_effects {
+    VIERA_EFF_ALL_OFF = 0,
+    VIERA_EFF_CAPS_ONLY,
+    VIERA_EFF_ALL_WHITE,
+    VIERA_EFF_WHITE_EXCEPT_CAPS,
+    VIERA_EFF_MIRROR_FILL,
+
+    VIERA_EFF_NUMBER
+};

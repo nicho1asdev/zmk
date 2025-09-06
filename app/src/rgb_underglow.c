@@ -54,6 +54,7 @@ enum rgb_underglow_effect {
     UNDERGLOW_EFFECT_CAPS_ONLY,
     UNDERGLOW_EFFECT_ALL_WHITE,
     UNDERGLOW_EFFECT_WHITE_EXCEPT_CAPS,
+    UNDERGLOW_EFFECT_MIRROR_FILL,
     UNDERGLOW_EFFECT_NUMBER
 };
 
@@ -153,12 +154,6 @@ static void zmk_rgb_underglow_effect_white_except_caps(void) {
     }
 }
 
-void zmk_rgb_underglow_request_refresh(void) {
-    // if (!led_strip) { return; }
-    // if (!state.on)  { return; }
-    // k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
-}
-
 static void zmk_rgb_underglow_effect_all_white(void) {
     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
         uint8_t ui = viera_user_brightness_get() / 10;
@@ -188,6 +183,76 @@ static void zmk_rgb_underglow_effect_caps_only(void) {
     }
 }
 
+static inline void mirror_fill_apply_fade(int idx, int age_steps, int n) {
+    if (idx < 0 || idx >= n) return;
+    if (age_steps < 0) return;
+    const int fade_len = 8;
+    if (age_steps > fade_len) age_steps = fade_len;
+    uint8_t ui = viera_user_brightness_get() / 10; /* 0..10 */
+    uint8_t eff = (uint8_t)((age_steps * 100) / fade_len);
+    uint8_t final = (uint16_t)ui * eff / 100;      /* 0..10 */
+    struct led_rgb c = { .r = final, .g = final, .b = final };
+    pixels[idx] = c;
+}
+
+/* Mirrored inward lines that meet in the center, then spread out to fill all. */
+static void zmk_rgb_underglow_effect_mirror_fill(void) {
+    const int n = STRIP_NUM_PIXELS;
+    if (n <= 0) { return; }
+
+    /* Speed control: each tick advances one step. */
+    uint32_t step = state.animation_step++;
+
+    /* Phase split */
+    const int meet_step = (n - 1) / 2; /* steps until heads meet */
+    const int fade_len  = 8;           /* steps for per-LED fade-in */
+
+    /* Clear */
+    for (int i = 0; i < n; i++) {
+        pixels[i] = (struct led_rgb){ .r = 0, .g = 0, .b = 0 };
+    }
+
+    if ((int)step <= meet_step) {
+        /* Phase 1: two single heads move inward from ends. */
+        int left_head  = step;         /* 0 -> mid */
+        int right_head = (n - 1) - step; /* end -> mid */
+
+        /* Fade in the heads (age = step - first appearance) */
+        mirror_fill_apply_fade(left_head,  step, n);
+        mirror_fill_apply_fade(right_head, step, n);
+    } else {
+        /* Phase 2: after meeting, fill outward from the center to all LEDs with gradual fade. */
+        int step2 = (int)step - (meet_step + 1);
+        /* Determine center indices for even/odd n */
+        int midL = (n - 1) / 2;
+        int midR = n / 2;
+
+        /* Illuminate a growing window [midL - r, midR + r] */
+        for (int r = 0; r <= step2; r++) {
+            int li = midL - r;
+            int ri = midR + r;
+            /* Age newer pixels less (fade-in) */
+            int age = fade_len - (step2 - r);
+            mirror_fill_apply_fade(li, age, n);
+            mirror_fill_apply_fade(ri, age, n);
+        }
+
+        /* Stop or loop when fully filled */
+        if (midL - step2 <= 0 && midR + step2 >= (n - 1)) {
+            /* Small hold at full, then restart */
+            if (step2 > fade_len * 2) {
+                state.animation_step = 0;
+            }
+        }
+    }
+}
+
+void zmk_rgb_underglow_request_refresh(void) {
+    // if (!led_strip) { return; }
+    // if (!state.on)  { return; }
+    // k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
+}
+
 static void zmk_rgb_underglow_tick(struct k_work *work) {
     switch (state.current_effect) {
     case UNDERGLOW_EFFECT_ALL_OFF:
@@ -201,6 +266,9 @@ static void zmk_rgb_underglow_tick(struct k_work *work) {
         break;
     case UNDERGLOW_EFFECT_WHITE_EXCEPT_CAPS:
         zmk_rgb_underglow_effect_white_except_caps();
+        break;
+    case UNDERGLOW_EFFECT_MIRROR_FILL:
+        zmk_rgb_underglow_effect_mirror_fill();
         break;
     }
 

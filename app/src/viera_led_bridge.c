@@ -5,6 +5,7 @@
 #include <zephyr/sys/atomic.h>
 #include <zephyr/sys/util.h>
 #include <stdlib.h>
+#include <viera_effects.h>
 LOG_MODULE_REGISTER(viera_led_bridge, CONFIG_LOG_DEFAULT_LEVEL);
 
 /* ---- Master user brightness state with fade (0..100) ---- */
@@ -78,8 +79,21 @@ void viera_on_brightness_changed(uint8_t level) {
     viera_user_brightness_set_target(level);
 }
 
+/* Startup effect work for RGB underglow */
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW)
+static void viera_startup_effect_work(struct k_work *work) {
+    ARG_UNUSED(work);
+    zmk_rgb_underglow_select_effect(VIERA_EFF_MIRROR_FILL);
+    zmk_rgb_underglow_request_refresh();
+}
+static K_WORK_DELAYABLE_DEFINE(g_startup_work, viera_startup_effect_work);
+#endif
+
 static int viera_led_bridge_init(void) {
     k_work_init_delayable(&g_fade_work, viera_brightness_fade_work);
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW)
+    k_work_schedule(&g_startup_work, K_MSEC(10));
+#endif
     return 0;
 }
 SYS_INIT(viera_led_bridge_init, APPLICATION, 50);
