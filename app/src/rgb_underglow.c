@@ -1,3 +1,4 @@
+#if !DT_HAS_CHOSEN(zmk_underglow)
 /*
  * Copyright (c) 2020 The ZMK Contributors
  *
@@ -144,8 +145,6 @@ static void zmk_rgb_underglow_effect_white_except_caps(void) {
         uint8_t final = (uint16_t)ui * eff / 100;
         struct led_rgb color = (struct led_rgb){ .r = final, .g = final, .b = final };
         if (i == caps_idx) {
-            uint8_t caps_eff = 100; // brightness for caps indicator
-            uint8_t caps_final = (uint16_t)ui * caps_eff / 100;
             color.r = 0;
             color.g = 40;
             color.b = 0;
@@ -174,9 +173,6 @@ static void zmk_rgb_underglow_effect_caps_only(void) {
     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
         struct led_rgb color = (struct led_rgb){ .r = 0, .g = 0, .b = 0 };
         if (i == caps_idx) {
-            uint8_t ui = viera_user_brightness_get() / 10;
-            uint8_t eff = 100; // caps effect brightness
-            uint8_t final = (uint16_t)ui * eff / 100;
             color.g = 40; /* green indicator scaled */
         }
         pixels[i] = color;
@@ -254,6 +250,7 @@ static void zmk_rgb_underglow_effect_mirror_fill(void) {
     }
 }
 
+extern struct k_work underglow_tick_work;
 void zmk_rgb_underglow_request_refresh(void) {
     if (!led_strip) { return; }
     if (!state.on)  { return; }
