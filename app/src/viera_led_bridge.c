@@ -4,6 +4,7 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/atomic.h>
 #include <zephyr/sys/util.h>
+#include <stdlib.h>
 LOG_MODULE_REGISTER(viera_led_bridge, CONFIG_LOG_DEFAULT_LEVEL);
 
 /* ---- Master user brightness state with fade (0..100) ---- */
@@ -54,7 +55,7 @@ static void viera_brightness_fade_work(struct k_work *work) {
     int diff = target - curr;
     /* Compute step so we roughly complete in VIERA_FADE_TOTAL_MS */
     int steps     = MAX(1, VIERA_FADE_TOTAL_MS / VIERA_FADE_STEP_MS);
-    int step_mag  = MAX(1, ABS(diff) / steps);
+    int step_mag  = MAX(1, abs(diff) / steps);
     int next      = curr + (diff > 0 ? step_mag : -step_mag);
 
     /* Clamp and avoid overshoot */
