@@ -1,4 +1,3 @@
-#if !DT_HAS_CHOSEN(zmk_underglow)
 /*
  * Copyright (c) 2020 The ZMK Contributors
  *
@@ -6,6 +5,7 @@
  */
 
 #include <zephyr/device.h>
+#include <zephyr/devicetree.h>
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/settings/settings.h>
