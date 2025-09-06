@@ -260,6 +260,7 @@ void zmk_rgb_underglow_request_refresh(void) {
     k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
 }
 
+
 static void zmk_rgb_underglow_tick(struct k_work *work) {
     switch (state.current_effect) {
     case UNDERGLOW_EFFECT_ALL_OFF:
