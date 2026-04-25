@@ -5,6 +5,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/event_manager.h>
 #include <zmk/events/hid_indicators_changed.h>
 #include <zmk/rgb_underglow.h>
+#include <zmk/rgb.h>
 #include <zmk/hid_indicators_types.h>
 #include <zephyr/sys/util.h>
 
@@ -18,7 +19,8 @@ static void apply_caps_state(bool caps_on) {
 
     if (caps_on) {
         zmk_rgb_underglow_on();
-        zmk_rgb_underglow_set_hsb(0, 0, 100); // white
+        struct zmk_hsb color = { .h = 0, .s = 0, .b = 100 };
+        zmk_rgb_underglow_set_hsb(color);
     } else {
         zmk_rgb_underglow_off();
     }
