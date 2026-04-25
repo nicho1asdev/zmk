@@ -30,7 +30,7 @@ static bool s_backlight_on = true;
 
 static uint8_t select_effect(bool caps_on) {
     if (!s_backlight_on) {
-        return caps_on ? CONFIG_ZMK_EFF_IDX_CAPS_ONLY : CONFIG_ZMK_EFF_IDX_ALL_OFF;
+        return caps_on ? 1 : 0;
     } else {
         return caps_on ? CONFIG_ZMK_EFF_IDX_WHITE_EXCEPT_CAPS : CONFIG_ZMK_EFF_IDX_ALL_WHITE;
     }
