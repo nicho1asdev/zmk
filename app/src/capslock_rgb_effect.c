@@ -8,6 +8,9 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/hid_indicators_types.h>
 #include <zephyr/sys/util.h>
 
+/* HID LED report: bit 0 = Num Lock, bit 1 = Caps Lock, bit 2 = Scroll Lock */
+#define CAPS_LOCK_BIT BIT(1)
+
 static bool s_backlight_on = true;
 
 static void apply_caps_state(bool caps_on) {
@@ -33,7 +36,7 @@ static int capslock_rgb_listener(const zmk_event_t *eh) {
         return ZMK_EV_EVENT_BUBBLE;
     }
 
-    bool caps_on = ev->indicators & ZMK_LED_CAPSLOCK_BIT;
+    bool caps_on = ev->indicators & CAPS_LOCK_BIT;
     apply_caps_state(caps_on);
 
     return ZMK_EV_EVENT_BUBBLE;
