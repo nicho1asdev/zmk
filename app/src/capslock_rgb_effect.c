@@ -2,6 +2,8 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW) && IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
+
 #include <zmk/event_manager.h>
 #include <zmk/events/hid_indicators_changed.h>
 #include <zmk/rgb_underglow.h>
@@ -44,3 +46,5 @@ static int capslock_rgb_listener(const zmk_event_t *eh) {
 
 ZMK_LISTENER(capslock_rgb, capslock_rgb_listener);
 ZMK_SUBSCRIPTION(capslock_rgb, zmk_hid_indicators_changed);
+
+#endif /* CONFIG_ZMK_RGB_UNDERGLOW && CONFIG_ZMK_HID_INDICATORS */
