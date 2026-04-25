@@ -18,7 +18,7 @@ static void apply_caps_state(bool caps_on) {
 
     if (caps_on) {
         zmk_rgb_underglow_on();
-        struct zmk_hsb color = { .h = 0, .s = 0, .b = 100 };
+        struct zmk_led_hsb color = { .h = 0, .s = 0, .b = 100 };
         zmk_rgb_underglow_set_hsb(color);
     } else {
         zmk_rgb_underglow_off();
