@@ -5,7 +5,6 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/event_manager.h>
 #include <zmk/events/hid_indicators_changed.h>
 #include <zmk/rgb_underglow.h>
-#include <zmk/rgb.h>
 #include <zmk/hid_indicators_types.h>
 #include <zephyr/sys/util.h>
 
