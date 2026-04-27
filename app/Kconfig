@@ -708,7 +708,7 @@ endchoice
 
 config ZMK_CAPS_LED_INDEX
     int "Caps lock RGB pixel index (fallback if devicetree omits zmk,caps-lock-pixel-index)"
-    default 5
+    default 30
     range 0 255
     depends on ZMK_RGB_UNDERGLOW_CAPS_INDICATOR
     help
