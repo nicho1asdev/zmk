@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include <stdbool.h>
+#include <stdint.h>
+
 struct zmk_led_hsb {
     uint16_t h;
     uint8_t s;
@@ -27,4 +30,7 @@ int zmk_rgb_underglow_change_sat(int direction);
 int zmk_rgb_underglow_change_brt(int direction);
 int zmk_rgb_underglow_change_spd(int direction);
 int zmk_rgb_underglow_set_hsb(struct zmk_led_hsb color);
+struct zmk_led_hsb zmk_rgb_underglow_get_hsb(void);
 void zmk_rgb_underglow_request_refresh(void);
+int zmk_rgb_underglow_set_effect(uint8_t idx);
+bool zmk_rgb_underglow_is_on(void);

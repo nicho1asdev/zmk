@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# Extends Zephyr's ws2812-spi binding with optional ZMK underglow properties.
+# Merged with the base binding when the devicetree is processed.
+
+compatible: "worldsemi,ws2812-spi"
+
+properties:
+  zmk,caps-lock-pixel-index:
+    type: int
+    description: |
+      Zero-based LED index on this strip for the caps lock / caps word RGB overlay.
+      When omitted, CONFIG_ZMK_CAPS_LED_INDEX is used.

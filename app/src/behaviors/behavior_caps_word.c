@@ -19,6 +19,7 @@
 #include <zmk/keys.h>
 #include <zmk/hid.h>
 #include <zmk/keymap.h>
+#include <zmk/caps_word.h>
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
@@ -176,5 +177,23 @@ static int caps_word_keycode_state_changed_listener(const zmk_event_t *eh) {
                             CONFIG_KERNEL_INIT_PRIORITY_DEFAULT, &behavior_caps_word_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(KP_INST)
+
+bool zmk_caps_word_any_active(void) {
+    for (int i = 0; i < ARRAY_SIZE(devs); i++) {
+        struct behavior_caps_word_data *data = devs[i]->data;
+
+        if (data->active) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+#else /* !DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT) */
+
+bool zmk_caps_word_any_active(void) {
+    return false;
+}
 
 #endif

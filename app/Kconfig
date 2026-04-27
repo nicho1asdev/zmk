@@ -323,7 +323,21 @@ config ZMK_RGB_UNDERGLOW_SPD_START
 
 config ZMK_RGB_UNDERGLOW_EFF_START
     int "RGB underglow start effect int value related to the effect enum list"
-    range 0 3
+    range 0 4
+
+config ZMK_RGB_UNDERGLOW_VIERA_MIRROR_FILL
+    bool "Add mirror-fill as extra underglow effect (index 4)"
+    default n
+
+config ZMK_RGB_UNDERGLOW_CAPS_INDICATOR
+    bool "RGB pixel overlay for caps lock from host LED state"
+    depends on ZMK_HID_INDICATORS
+    default n
+
+config ZMK_RGB_UNDERGLOW_CAPS_WORD_INDICATOR
+    bool "Also light overlay pixel while caps-word is active"
+    depends on ZMK_RGB_UNDERGLOW_CAPS_INDICATOR
+    default n
 
 config ZMK_RGB_UNDERGLOW_ON_START
     bool "RGB underglow starts on by default"
@@ -692,42 +706,14 @@ choice CBPRINTF_IMPLEMENTATION
 
 endchoice
 
-menu "Caps/Backlight Control"
-
 config ZMK_CAPS_LED_INDEX
-    int "Caps Lock pixel index"
-    default 30
+    int "Caps lock RGB pixel index (fallback if devicetree omits zmk,caps-lock-pixel-index)"
+    default 5
     range 0 255
-    depends on ZMK_RGB_UNDERGLOW
+    depends on ZMK_RGB_UNDERGLOW_CAPS_INDICATOR
     help
-      Index of the pixel that represents the Caps key in your underglow strip.
-
-# Effect index mapping used by the caps/backlight selector
-config ZMK_EFF_IDX_ALL_OFF
-    int "Effect index: ALL_OFF"
-    default 0
-    range 0 3
-    depends on ZMK_RGB_UNDERGLOW
-
-config ZMK_EFF_IDX_CAPS_ONLY
-    int "Effect index: CAPS_ONLY (green)"
-    default 1
-    range 0 3
-    depends on ZMK_RGB_UNDERGLOW
-
-config ZMK_EFF_IDX_ALL_WHITE
-    int "Effect index: ALL_WHITE"
-    default 2
-    range 0 3
-    depends on ZMK_RGB_UNDERGLOW
-
-config ZMK_EFF_IDX_WHITE_EXCEPT_CAPS
-    int "Effect index: WHITE_EXCEPT_CAPS (caps green)"
-    default 3
-    range 0 3
-    depends on ZMK_RGB_UNDERGLOW
-
-endmenu
+      Zero-based LED on the underglow strip. Prefer setting zmk,caps-lock-pixel-index on the
+      zmk,underglow chosen strip node in devicetree.
 
 # VIERA app options
 menu "VIERA Options"

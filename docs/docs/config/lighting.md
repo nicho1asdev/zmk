@@ -31,6 +31,10 @@ Definition file: [zmk/app/Kconfig](https://github.com/zmkfirmware/zmk/blob/main/
 | `CONFIG_ZMK_RGB_UNDERGLOW_BRT_START`     | int  | Default brightness in percent (0-100)                     | 100     |
 | `CONFIG_ZMK_RGB_UNDERGLOW_SPD_START`     | int  | Default effect speed (1-5)                                | 3       |
 | `CONFIG_ZMK_RGB_UNDERGLOW_EFF_START`     | int  | Default effect index from the effect list (see below)     | 0       |
+| `CONFIG_ZMK_RGB_UNDERGLOW_VIERA_MIRROR_FILL` | bool | Adds optional fifth effect (mirror fill) at index 4   | n       |
+| `CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR` | bool | Highlights one pixel when host caps lock is on (requires `CONFIG_ZMK_HID_INDICATORS`) | n |
+| `CONFIG_ZMK_RGB_UNDERGLOW_CAPS_WORD_INDICATOR` | bool | Same pixel also on while caps-word is active | n |
+| `CONFIG_ZMK_CAPS_LED_INDEX`              | int  | Caps pixel index if devicetree omits `zmk,caps-lock-pixel-index` | 5 |
 | `CONFIG_ZMK_RGB_UNDERGLOW_ON_START`      | bool | Default on state                                          | y       |
 | `CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN`       | int  | Minimum brightness in percent (0-100)                     | 0       |
 | `CONFIG_ZMK_RGB_UNDERGLOW_BRT_MAX`       | int  | Maximum brightness in percent (0-100)                     | 100     |
@@ -43,6 +47,7 @@ Values for `CONFIG_ZMK_RGB_UNDERGLOW_EFF_START`:
 | 1     | Breathe     |
 | 2     | Spectrum    |
 | 3     | Swirl       |
+| 4     | Mirror fill (only if `CONFIG_ZMK_RGB_UNDERGLOW_VIERA_MIRROR_FILL=y`) |
 
 :::note
 The `*_START` settings only determine the initial underglow state. Any changes you make with the [underglow behavior](../keymaps/behaviors/underglow.md) are saved to flash after a one minute delay and will be used after that.
@@ -50,7 +55,9 @@ The `*_START` settings only determine the initial underglow state. Any changes y
 
 ### Devicetree
 
-ZMK does not have any Devicetree properties of its own. See the Devicetree bindings for [Zephyr's LED strip drivers](https://github.com/zephyrproject-rtos/zephyr/tree/main/dts/bindings/led_strip).
+See the Devicetree bindings for [Zephyr's LED strip drivers](https://github.com/zephyrproject-rtos/zephyr/tree/main/dts/bindings/led_strip).
+
+For `worldsemi,ws2812-spi` strips, ZMK adds an optional property `zmk,caps-lock-pixel-index` (see `app/dts/bindings/led_strip/worldsemi,ws2812-spi.yaml`) on the `zmk,underglow` chosen node to set the LED used by `CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR`. Other strip compatibles fall back to `CONFIG_ZMK_CAPS_LED_INDEX` only.
 
 See the [RGB underglow hardware integration page](../development/hardware-integration/lighting/underglow.md) for examples of the properties that must be set to enable underglow.
 
