@@ -86,6 +86,8 @@ static const struct device *led_strip;
 static struct led_rgb pixels[STRIP_NUM_PIXELS];
 
 static struct rgb_underglow_state state;
+static bool rgb_sleeping;
+static bool rgb_on_before_sleep;
 
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER)
 static const struct device *const ext_power = DEVICE_DT_GET(DT_INST(0, zmk_ext_power_generic));
@@ -782,6 +784,58 @@ int zmk_rgb_underglow_set_effect(uint8_t idx) {
 bool zmk_rgb_underglow_is_on(void) {
     return state.on;
 }
+
+static int rgb_underglow_sleep_event_listener(const zmk_event_t *eh) {
+    if (!as_zmk_activity_state_changed(eh) || !led_strip) {
+        return -ENOTSUP;
+    }
+
+    const bool sleeping = zmk_activity_get_state() == ZMK_ACTIVITY_SLEEP;
+    if (sleeping == rgb_sleeping) {
+        return 0;
+    }
+
+    rgb_sleeping = sleeping;
+
+    if (sleeping) {
+        rgb_on_before_sleep = state.on;
+        k_timer_stop(&underglow_tick);
+        state.on = false;
+        for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+            pixels[i] = (struct led_rgb){r : 0, g : 0, b : 0};
+        }
+        (void)led_strip_update_rgb(led_strip, pixels, STRIP_NUM_PIXELS);
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER)
+        if (ext_power != NULL) {
+            int rc = ext_power_disable(ext_power);
+            if (rc != 0) {
+                LOG_ERR("Unable to disable EXT_POWER: %d", rc);
+            }
+        }
+#endif
+        return 0;
+    }
+
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER)
+    if (rgb_on_before_sleep) {
+        if (ext_power != NULL) {
+            int rc = ext_power_enable(ext_power);
+            if (rc != 0) {
+                LOG_ERR("Unable to enable EXT_POWER: %d", rc);
+            }
+        }
+    }
+#endif
+    state.on = rgb_on_before_sleep;
+    if (state.on) {
+        k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
+    }
+    zmk_rgb_underglow_request_refresh();
+    return 0;
+}
+
+ZMK_LISTENER(rgb_underglow_sleep, rgb_underglow_sleep_event_listener);
+ZMK_SUBSCRIPTION(rgb_underglow_sleep, zmk_activity_state_changed);
 
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_IDLE) ||                                          \
     IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_USB)

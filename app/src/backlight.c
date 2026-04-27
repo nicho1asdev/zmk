@@ -41,6 +41,8 @@ struct backlight_state {
 
 static struct backlight_state state = {.brightness = CONFIG_ZMK_BACKLIGHT_BRT_START,
                                        .on = IS_ENABLED(CONFIG_ZMK_BACKLIGHT_ON_START)};
+static bool backlight_sleeping;
+static bool backlight_on_before_sleep;
 
 static int zmk_backlight_update(void) {
     uint8_t brt = zmk_backlight_get_brt();
@@ -192,3 +194,28 @@ ZMK_SUBSCRIPTION(backlight, zmk_usb_conn_state_changed);
 #endif
 
 SYS_INIT(zmk_backlight_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
+
+static int backlight_sleep_event_listener(const zmk_event_t *eh) {
+    if (!as_zmk_activity_state_changed(eh)) {
+        return -ENOTSUP;
+    }
+
+    const bool sleeping = zmk_activity_get_state() == ZMK_ACTIVITY_SLEEP;
+    if (sleeping == backlight_sleeping) {
+        return 0;
+    }
+
+    backlight_sleeping = sleeping;
+
+    if (sleeping) {
+        backlight_on_before_sleep = state.on;
+        state.on = false;
+        return zmk_backlight_update();
+    }
+
+    state.on = backlight_on_before_sleep;
+    return zmk_backlight_update();
+}
+
+ZMK_LISTENER(backlight_sleep, backlight_sleep_event_listener);
+ZMK_SUBSCRIPTION(backlight_sleep, zmk_activity_state_changed);
