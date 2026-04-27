@@ -330,9 +330,7 @@ static void rgb_underglow_ensure_caps_only_timer(void) {
     }
 
     rgb_underglow_ext_power_set(true);
-    if (!k_timer_is_running(&underglow_tick)) {
-        k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
-    }
+    k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
     k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
 }
 
