@@ -29,9 +29,11 @@
 
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR)
 #include <zmk/hid_indicators.h>
+#include <zmk/events/hid_indicators_changed.h>
 #endif
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_WORD_INDICATOR)
 #include <zmk/caps_word.h>
+#include <zmk/events/keycode_state_changed.h>
 #endif
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
@@ -88,6 +90,9 @@ static struct rgb_underglow_state state;
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER)
 static const struct device *const ext_power = DEVICE_DT_GET(DT_INST(0, zmk_ext_power_generic));
 #endif
+
+static void zmk_rgb_underglow_tick(struct k_work *work);
+K_WORK_DEFINE(underglow_tick_work, zmk_rgb_underglow_tick);
 
 static struct zmk_led_hsb hsb_scale_min_max(struct zmk_led_hsb hsb) {
     hsb.b = CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN +
@@ -263,22 +268,38 @@ static void zmk_rgb_underglow_effect_mirror_fill(void) {
 
 #define HOST_CAPS_LOCK_MASK BIT(1)
 
-static void rgb_underglow_apply_caps_indicator(void) {
-    if (!state.on) {
-        return;
-    }
-
+static bool rgb_underglow_caps_want_pixel(void) {
     zmk_hid_indicators_t ind = zmk_hid_indicators_get_current_profile();
     bool host_caps = (ind & HOST_CAPS_LOCK_MASK) != 0;
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_WORD_INDICATOR)
-    bool show = host_caps || zmk_caps_word_any_active();
+    return host_caps || zmk_caps_word_any_active();
 #else
-    bool show = host_caps;
+    return host_caps;
 #endif
-    if (!show) {
+}
+
+static void rgb_underglow_ext_power_set(bool enable) {
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER)
+    if (ext_power == NULL) {
         return;
     }
+    if (enable) {
+        int rc = ext_power_enable(ext_power);
+        if (rc != 0) {
+            LOG_ERR("Unable to enable EXT_POWER: %d", rc);
+        }
+    } else {
+        int rc = ext_power_disable(ext_power);
+        if (rc != 0) {
+            LOG_ERR("Unable to disable EXT_POWER: %d", rc);
+        }
+    }
+#else
+    ARG_UNUSED(enable);
+#endif /* ZMK_RGB_UNDERGLOW_EXT_POWER */
+}
 
+static void rgb_underglow_paint_caps_pixel(void) {
     int idx = RGB_UNDERGLOW_CAPS_PIXEL;
     if (idx < 0 || idx >= STRIP_NUM_PIXELS) {
         return;
@@ -288,34 +309,128 @@ static void rgb_underglow_apply_caps_indicator(void) {
     pixels[idx] = hsb_to_rgb(hsb_scale_min_max(ind_color));
 }
 
+static void rgb_underglow_teardown_standalone_caps(void) {
+    k_timer_stop(&underglow_tick);
+    rgb_underglow_ext_power_set(false);
+
+    for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+        pixels[i] = (struct led_rgb){r : 0, g : 0, b : 0};
+    }
+
+    if (led_strip) {
+        (void)led_strip_update_rgb(led_strip, pixels, STRIP_NUM_PIXELS);
+    }
+}
+
+static void rgb_underglow_ensure_caps_only_timer(void) {
+    if (state.on || !rgb_underglow_caps_want_pixel()) {
+        return;
+    }
+
+    rgb_underglow_ext_power_set(true);
+    if (!k_timer_is_running(&underglow_tick)) {
+        k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
+    }
+    k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
+}
+
+static int rgb_underglow_caps_hid_listener(const zmk_event_t *eh) {
+    const struct zmk_hid_indicators_changed *ev = as_zmk_hid_indicators_changed(eh);
+    if (!ev) {
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+
+    if (state.on) {
+        zmk_rgb_underglow_request_refresh();
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+
+    if (rgb_underglow_caps_want_pixel()) {
+        rgb_underglow_ensure_caps_only_timer();
+    } else {
+        rgb_underglow_teardown_standalone_caps();
+    }
+
+    return ZMK_EV_EVENT_BUBBLE;
+}
+
+ZMK_LISTENER(rgb_underglow_caps_hid, rgb_underglow_caps_hid_listener);
+ZMK_SUBSCRIPTION(rgb_underglow_caps_hid, zmk_hid_indicators_changed);
+
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_WORD_INDICATOR)
+
+static int rgb_underglow_caps_keycode_listener(const zmk_event_t *eh) {
+    if (state.on) {
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+    if (!as_zmk_keycode_state_changed(eh)) {
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+
+    if (rgb_underglow_caps_want_pixel()) {
+        rgb_underglow_ensure_caps_only_timer();
+    } else {
+        rgb_underglow_teardown_standalone_caps();
+    }
+
+    return ZMK_EV_EVENT_BUBBLE;
+}
+
+ZMK_LISTENER(rgb_underglow_caps_kw, rgb_underglow_caps_keycode_listener);
+ZMK_SUBSCRIPTION(rgb_underglow_caps_kw, zmk_keycode_state_changed);
+
+#endif /* CONFIG_ZMK_RGB_UNDERGLOW_CAPS_WORD_INDICATOR */
+
 #endif /* CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR */
 
 static void zmk_rgb_underglow_tick(struct k_work *work) {
-    switch (state.current_effect) {
-    case UNDERGLOW_EFFECT_SOLID:
-        zmk_rgb_underglow_effect_solid();
-        break;
-    case UNDERGLOW_EFFECT_BREATHE:
-        zmk_rgb_underglow_effect_breathe();
-        break;
-    case UNDERGLOW_EFFECT_SPECTRUM:
-        zmk_rgb_underglow_effect_spectrum();
-        break;
-    case UNDERGLOW_EFFECT_SWIRL:
-        zmk_rgb_underglow_effect_swirl();
-        break;
-#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_VIERA_MIRROR_FILL)
-    case UNDERGLOW_EFFECT_MIRROR_FILL:
-        zmk_rgb_underglow_effect_mirror_fill();
-        break;
-#endif
-    default:
-        break;
-    }
+    ARG_UNUSED(work);
 
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR)
-    rgb_underglow_apply_caps_indicator();
+    const bool caps_want = rgb_underglow_caps_want_pixel();
 #endif
+
+    if (state.on) {
+        switch (state.current_effect) {
+        case UNDERGLOW_EFFECT_SOLID:
+            zmk_rgb_underglow_effect_solid();
+            break;
+        case UNDERGLOW_EFFECT_BREATHE:
+            zmk_rgb_underglow_effect_breathe();
+            break;
+        case UNDERGLOW_EFFECT_SPECTRUM:
+            zmk_rgb_underglow_effect_spectrum();
+            break;
+        case UNDERGLOW_EFFECT_SWIRL:
+            zmk_rgb_underglow_effect_swirl();
+            break;
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_VIERA_MIRROR_FILL)
+        case UNDERGLOW_EFFECT_MIRROR_FILL:
+            zmk_rgb_underglow_effect_mirror_fill();
+            break;
+#endif
+        default:
+            break;
+        }
+
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR)
+        if (caps_want) {
+            rgb_underglow_paint_caps_pixel();
+        }
+#endif
+    } else {
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR)
+        if (!caps_want) {
+            rgb_underglow_teardown_standalone_caps();
+            return;
+        }
+
+        for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+            pixels[i] = (struct led_rgb){r : 0, g : 0, b : 0};
+        }
+        rgb_underglow_paint_caps_pixel();
+#endif
+    }
 
     int err = led_strip_update_rgb(led_strip, pixels, STRIP_NUM_PIXELS);
     if (err < 0) {
@@ -323,24 +438,33 @@ static void zmk_rgb_underglow_tick(struct k_work *work) {
     }
 }
 
-K_WORK_DEFINE(underglow_tick_work, zmk_rgb_underglow_tick);
-
 void zmk_rgb_underglow_request_refresh(void) {
     if (!led_strip) {
         return;
     }
-    if (!state.on) {
+    if (state.on) {
+        k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
         return;
     }
-    k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR)
+    if (rgb_underglow_caps_want_pixel()) {
+        k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
+    }
+#endif
 }
 
 static void zmk_rgb_underglow_tick_handler(struct k_timer *timer) {
-    if (!state.on) {
+    ARG_UNUSED(timer);
+
+    if (state.on) {
+        k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
         return;
     }
-
-    k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR)
+    if (rgb_underglow_caps_want_pixel()) {
+        k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
+    }
+#endif
 }
 
 K_TIMER_DEFINE(underglow_tick, zmk_rgb_underglow_tick_handler, NULL);
@@ -363,6 +487,13 @@ static int rgb_settings_set(const char *name, size_t len, settings_read_cb read_
             if (state.on) {
                 k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
             }
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR)
+            else if (rgb_underglow_caps_want_pixel()) {
+                rgb_underglow_ext_power_set(true);
+                k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
+                k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
+            }
+#endif
 
             return 0;
         }
@@ -427,6 +558,13 @@ static int zmk_rgb_underglow_init(void) {
     if (state.on) {
         k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
     }
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR)
+    else if (rgb_underglow_caps_want_pixel()) {
+        rgb_underglow_ext_power_set(true);
+        k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
+        k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
+    }
+#endif
 
     return 0;
 }
@@ -485,6 +623,18 @@ int zmk_rgb_underglow_off(void) {
         return -ENODEV;
     }
 
+    k_timer_stop(&underglow_tick);
+    state.on = false;
+
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR)
+    if (rgb_underglow_caps_want_pixel()) {
+        rgb_underglow_ext_power_set(true);
+        k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
+        k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
+        return zmk_rgb_underglow_save_state();
+    }
+#endif
+
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER)
     if (ext_power != NULL) {
         int rc = ext_power_disable(ext_power);
@@ -495,9 +645,6 @@ int zmk_rgb_underglow_off(void) {
 #endif
 
     k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_off_work);
-
-    k_timer_stop(&underglow_tick);
-    state.on = false;
 
     return zmk_rgb_underglow_save_state();
 }

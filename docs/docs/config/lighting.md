@@ -32,7 +32,7 @@ Definition file: [zmk/app/Kconfig](https://github.com/zmkfirmware/zmk/blob/main/
 | `CONFIG_ZMK_RGB_UNDERGLOW_SPD_START`     | int  | Default effect speed (1-5)                                | 3       |
 | `CONFIG_ZMK_RGB_UNDERGLOW_EFF_START`     | int  | Default effect index from the effect list (see below)     | 0       |
 | `CONFIG_ZMK_RGB_UNDERGLOW_VIERA_MIRROR_FILL` | bool | Adds optional fifth effect (mirror fill) at index 4   | n       |
-| `CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR` | bool | Highlights one pixel when host caps lock is on (requires `CONFIG_ZMK_HID_INDICATORS`) | n |
+| `CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR` | bool | Highlights one pixel when host caps lock is on (requires `CONFIG_ZMK_HID_INDICATORS`). Stays on while caps is active even if RGB underglow is toggled off (caps-only strip power). | n |
 | `CONFIG_ZMK_RGB_UNDERGLOW_CAPS_WORD_INDICATOR` | bool | Same pixel also on while caps-word is active | n |
 | `CONFIG_ZMK_CAPS_LED_INDEX`              | int  | Caps pixel index if devicetree omits `zmk,caps-lock-pixel-index` | 5 |
 | `CONFIG_ZMK_RGB_UNDERGLOW_ON_START`      | bool | Default on state                                          | y       |
