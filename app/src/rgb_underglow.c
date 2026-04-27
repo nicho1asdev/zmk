@@ -94,6 +94,8 @@ static const struct device *const ext_power = DEVICE_DT_GET(DT_INST(0, zmk_ext_p
 static void zmk_rgb_underglow_tick(struct k_work *work);
 K_WORK_DEFINE(underglow_tick_work, zmk_rgb_underglow_tick);
 
+extern struct k_timer underglow_tick;
+
 static struct zmk_led_hsb hsb_scale_min_max(struct zmk_led_hsb hsb) {
     hsb.b = CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN +
             (CONFIG_ZMK_RGB_UNDERGLOW_BRT_MAX - CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN) * hsb.b / BRT_MAX;
