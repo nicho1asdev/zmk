@@ -66,7 +66,7 @@ enum rgb_underglow_effect {
 };
 
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR)
-#if DT_HAS_PROP(STRIP_CHOSEN, zmk_caps_lock_pixel_index)
+#if DT_NODE_HAS_PROP(STRIP_CHOSEN, zmk_caps_lock_pixel_index)
 #define RGB_UNDERGLOW_CAPS_PIXEL DT_PROP(STRIP_CHOSEN, zmk_caps_lock_pixel_index)
 #else
 #define RGB_UNDERGLOW_CAPS_PIXEL CONFIG_ZMK_CAPS_LED_INDEX
