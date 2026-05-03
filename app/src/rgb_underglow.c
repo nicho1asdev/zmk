@@ -830,6 +830,22 @@ int zmk_rgb_underglow_change_spd(int direction) {
     return zmk_rgb_underglow_save_state();
 }
 
+int zmk_rgb_underglow_set_speed(uint8_t speed) {
+    if (!led_strip) {
+        return -ENODEV;
+    }
+
+    if (speed < 1) {
+        speed = 1;
+    }
+    if (speed > 5) {
+        speed = 5;
+    }
+
+    state.animation_speed = speed;
+    return zmk_rgb_underglow_save_state();
+}
+
 int zmk_rgb_underglow_set_effect(uint8_t idx) {
     if (!led_strip) {
         return -ENODEV;

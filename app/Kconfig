@@ -341,7 +341,7 @@ config ZMK_RGB_UNDERGLOW_CAPS_WORD_INDICATOR
 
 config ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL
     bool "Always-on white pixel on the underglow strip (independent of underglow on/off)"
-    default n
+    default y
     help
       Keeps one LED lit white at the configured index even when RGB underglow is toggled off,
       similar to standalone caps-indicator power behavior.

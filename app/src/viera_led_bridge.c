@@ -93,6 +93,56 @@ void viera_on_effect_changed(uint8_t effect) {
 #endif
 }
 
+static void rgb_to_hsb(uint8_t r, uint8_t g, uint8_t b, uint16_t *h, uint8_t *s, uint8_t *br) {
+    int max_c = MAX(r, MAX(g, b));
+    int min_c = MIN(r, MIN(g, b));
+    int delta = max_c - min_c;
+
+    *br = (uint8_t)((max_c * 100) / 255);
+
+    if (max_c == 0 || delta == 0) {
+        *s = 0;
+        *h = 0;
+        return;
+    }
+
+    *s = (uint8_t)((delta * 100) / max_c);
+
+    int hue;
+    if (max_c == r) {
+        hue = ((g - b) * 60) / delta;
+        if (hue < 0) hue += 360;
+    } else if (max_c == g) {
+        hue = 120 + ((b - r) * 60) / delta;
+    } else {
+        hue = 240 + ((r - g) * 60) / delta;
+    }
+    *h = (uint16_t)hue;
+}
+
+void viera_on_color_changed(uint8_t r, uint8_t g, uint8_t b) {
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW)
+    uint16_t h;
+    uint8_t s, br;
+    rgb_to_hsb(r, g, b, &h, &s, &br);
+
+    struct zmk_led_hsb c = zmk_rgb_underglow_get_hsb();
+    c.h = h;
+    c.s = s;
+    (void)zmk_rgb_underglow_set_hsb(c);
+    zmk_rgb_underglow_request_refresh();
+    LOG_DBG("Color RGB(%u,%u,%u) -> HSB(%u,%u,%u)", r, g, b, h, s, br);
+#endif
+}
+
+void viera_on_speed_changed(uint8_t speed) {
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW)
+    (void)zmk_rgb_underglow_set_speed(speed);
+    zmk_rgb_underglow_request_refresh();
+    LOG_DBG("Speed -> %u", speed);
+#endif
+}
+
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW)
 static void viera_startup_effect_work(struct k_work *work) {
     ARG_UNUSED(work);

@@ -39,6 +39,8 @@ LOG_MODULE_REGISTER(viera_gatt, CONFIG_VIERA_GATT_LOG_LEVEL);
    FirmwareVersion:   4B3A2F1A-77C9-4A4E-9D01-5E9C1F1B2C3D
    BacklightBrightness: 2E5E46B7-1B77-41E6-A3B3-DF2E7B7B5AA1
    BacklightEffect:   B9E1E31E-4C77-4B31-97F4-1B3D2B6C0AA2
+   Color:             7C8A3E4F-2D56-4A89-B1C2-9E3F5A7B8D01
+   Speed:             6D7B4F5E-3C67-5B9A-C2D3-0F4E6B8C9E12
 --------------------------------------------------- */
 
 static struct bt_uuid_128 VIERA_UUID_SVC =
@@ -56,9 +58,19 @@ static struct bt_uuid_128 VIERA_UUID_BRT =
 static struct bt_uuid_128 VIERA_UUID_EFF =
     BT_UUID_INIT_128(BT_UUID_128_ENCODE(0xB9E1E31E, 0x4C77, 0x4B31, 0x97F4, 0x1B3D2B6C0AA2));
 
+static struct bt_uuid_128 VIERA_UUID_COLOR =
+    BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x7C8A3E4F, 0x2D56, 0x4A89, 0xB1C2, 0x9E3F5A7B8D01));
+
+static struct bt_uuid_128 VIERA_UUID_SPD =
+    BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x6D7B4F5E, 0x3C67, 0x5B9A, 0xC2D3, 0x0F4E6B8C9E12));
+
 /* -------- Weak hooks you can override elsewhere -------- */
 __weak void viera_on_brightness_changed(uint8_t level) { ARG_UNUSED(level); }
 __weak void viera_on_effect_changed(uint8_t effect) { ARG_UNUSED(effect); }
+__weak void viera_on_color_changed(uint8_t r, uint8_t g, uint8_t b) {
+    ARG_UNUSED(r); ARG_UNUSED(g); ARG_UNUSED(b);
+}
+__weak void viera_on_speed_changed(uint8_t speed) { ARG_UNUSED(speed); }
 
 /* Forward declaration for reboot function */
 static void reboot_to_bootloader(void);
@@ -148,6 +160,34 @@ static ssize_t eff_write(struct bt_conn *conn, const struct bt_gatt_attr *attr,
     return len;
 }
 
+static ssize_t color_write(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                           const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
+{
+    ARG_UNUSED(conn); ARG_UNUSED(attr); ARG_UNUSED(offset); ARG_UNUSED(flags);
+    if (len < 3) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+    }
+    const uint8_t *rgb = buf;
+    viera_on_color_changed(rgb[0], rgb[1], rgb[2]);
+    LOG_DBG("Color -> R:%u G:%u B:%u", rgb[0], rgb[1], rgb[2]);
+    return len;
+}
+
+static ssize_t spd_write(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                         const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
+{
+    ARG_UNUSED(conn); ARG_UNUSED(attr); ARG_UNUSED(offset); ARG_UNUSED(flags);
+    if (len < 1) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+    }
+    uint8_t spd = ((const uint8_t *)buf)[0];
+    if (spd < 1) spd = 1;
+    if (spd > 5) spd = 5;
+    viera_on_speed_changed(spd);
+    LOG_DBG("Speed -> %u", spd);
+    return len;
+}
+
 /* -------- GATT table -------- */
 
 BT_GATT_SERVICE_DEFINE(viera_svc,
@@ -171,5 +211,15 @@ BT_GATT_SERVICE_DEFINE(viera_svc,
     /* Backlight Effect: Write, index */
     BT_GATT_CHARACTERISTIC(&VIERA_UUID_EFF.uuid,
                            BT_GATT_CHRC_WRITE,
-                           BT_GATT_PERM_WRITE, NULL, eff_write, NULL)
+                           BT_GATT_PERM_WRITE, NULL, eff_write, NULL),
+
+    /* Color: Write, 3 bytes (R, G, B) */
+    BT_GATT_CHARACTERISTIC(&VIERA_UUID_COLOR.uuid,
+                           BT_GATT_CHRC_WRITE,
+                           BT_GATT_PERM_WRITE, NULL, color_write, NULL),
+
+    /* Animation Speed: Write, 1 byte (1-5) */
+    BT_GATT_CHARACTERISTIC(&VIERA_UUID_SPD.uuid,
+                           BT_GATT_CHRC_WRITE,
+                           BT_GATT_PERM_WRITE, NULL, spd_write, NULL)
 );
