@@ -7,7 +7,7 @@ manifest:
   projects:
     - name: zephyr
       remote: zmkfirmware
-      revision: v3.5.0+zmk-fixes
+      revision: v0.3-branch
       clone-depth: 1
       import:
         name-blocklist:
