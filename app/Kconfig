@@ -339,6 +339,22 @@ config ZMK_RGB_UNDERGLOW_CAPS_WORD_INDICATOR
     depends on ZMK_RGB_UNDERGLOW_CAPS_INDICATOR
     default n
 
+config ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL
+    bool "Always-on white pixel on the underglow strip (independent of underglow on/off)"
+    default n
+    help
+      Keeps one LED lit white at the configured index even when RGB underglow is toggled off,
+      similar to standalone caps-indicator power behavior.
+
+config ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL_INDEX
+    int "LED index for always-on white pixel (fallback if devicetree omits zmk,constant-pixel-index)"
+    default 15
+    range 0 255
+    depends on ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL
+    help
+      Zero-based LED on the underglow strip. Prefer zmk,constant-pixel-index on the zmk,underglow
+      chosen strip node in devicetree.
+
 config ZMK_RGB_UNDERGLOW_ON_START
     bool "RGB underglow starts on by default"
 

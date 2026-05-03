@@ -10,3 +10,9 @@ properties:
     description: |
       Zero-based LED index on this strip for the caps lock / caps word RGB overlay.
       When omitted, CONFIG_ZMK_CAPS_LED_INDEX is used.
+
+  zmk,constant-pixel-index:
+    type: int
+    description: |
+      Zero-based LED index for the always-on white pixel (CONFIG_ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL).
+      When omitted, CONFIG_ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL_INDEX is used.

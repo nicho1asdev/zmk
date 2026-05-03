@@ -73,6 +73,14 @@ enum rgb_underglow_effect {
 #endif
 #endif
 
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL)
+#if DT_NODE_HAS_PROP(STRIP_CHOSEN, zmk_constant_pixel_index)
+#define RGB_UNDERGLOW_CONSTANT_PIXEL DT_PROP(STRIP_CHOSEN, zmk_constant_pixel_index)
+#else
+#define RGB_UNDERGLOW_CONSTANT_PIXEL CONFIG_ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL_INDEX
+#endif
+#endif
+
 struct rgb_underglow_state {
     struct zmk_led_hsb color;
     uint8_t animation_speed;
@@ -282,6 +290,52 @@ static bool rgb_underglow_caps_want_pixel(void) {
 #endif
 }
 
+static void rgb_underglow_paint_caps_pixel(void) {
+    int idx = RGB_UNDERGLOW_CAPS_PIXEL;
+    if (idx < 0 || idx >= STRIP_NUM_PIXELS) {
+        return;
+    }
+
+    struct zmk_led_hsb ind_color = {.h = 120, .s = SAT_MAX, .b = BRT_MAX};
+    pixels[idx] = hsb_to_rgb(hsb_scale_min_max(ind_color));
+}
+
+#endif /* CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR */
+
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL)
+
+static bool rgb_underglow_constant_pixel_valid(void) {
+    const int idx = RGB_UNDERGLOW_CONSTANT_PIXEL;
+    return idx >= 0 && idx < STRIP_NUM_PIXELS;
+}
+
+static void rgb_underglow_paint_constant_pixel(void) {
+    if (!rgb_underglow_constant_pixel_valid()) {
+        return;
+    }
+    const int idx = RGB_UNDERGLOW_CONSTANT_PIXEL;
+    struct zmk_led_hsb ind_color = {.h = 0, .s = 0, .b = BRT_MAX};
+    pixels[idx] = hsb_to_rgb(hsb_scale_min_max(ind_color));
+}
+
+#endif /* CONFIG_ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL */
+
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR) || IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL)
+
+static bool rgb_underglow_standalone_want_strip(void) {
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR)
+    if (rgb_underglow_caps_want_pixel()) {
+        return true;
+    }
+#endif
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL)
+    if (rgb_underglow_constant_pixel_valid()) {
+        return true;
+    }
+#endif
+    return false;
+}
+
 static void rgb_underglow_ext_power_set(bool enable) {
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER)
     if (ext_power == NULL) {
@@ -303,17 +357,7 @@ static void rgb_underglow_ext_power_set(bool enable) {
 #endif /* ZMK_RGB_UNDERGLOW_EXT_POWER */
 }
 
-static void rgb_underglow_paint_caps_pixel(void) {
-    int idx = RGB_UNDERGLOW_CAPS_PIXEL;
-    if (idx < 0 || idx >= STRIP_NUM_PIXELS) {
-        return;
-    }
-
-    struct zmk_led_hsb ind_color = {.h = 120, .s = SAT_MAX, .b = BRT_MAX};
-    pixels[idx] = hsb_to_rgb(hsb_scale_min_max(ind_color));
-}
-
-static void rgb_underglow_teardown_standalone_caps(void) {
+static void rgb_underglow_teardown_standalone(void) {
     k_timer_stop(&underglow_tick);
     rgb_underglow_ext_power_set(false);
 
@@ -326,8 +370,8 @@ static void rgb_underglow_teardown_standalone_caps(void) {
     }
 }
 
-static void rgb_underglow_ensure_caps_only_timer(void) {
-    if (state.on || !rgb_underglow_caps_want_pixel()) {
+static void rgb_underglow_ensure_standalone_timer(void) {
+    if (state.on || !rgb_underglow_standalone_want_strip()) {
         return;
     }
 
@@ -335,6 +379,10 @@ static void rgb_underglow_ensure_caps_only_timer(void) {
     k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
     k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
 }
+
+#endif /* CAPS_INDICATOR || CONSTANT_PIXEL */
+
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR)
 
 static int rgb_underglow_caps_hid_listener(const zmk_event_t *eh) {
     const struct zmk_hid_indicators_changed *ev = as_zmk_hid_indicators_changed(eh);
@@ -347,10 +395,10 @@ static int rgb_underglow_caps_hid_listener(const zmk_event_t *eh) {
         return ZMK_EV_EVENT_BUBBLE;
     }
 
-    if (rgb_underglow_caps_want_pixel()) {
-        rgb_underglow_ensure_caps_only_timer();
+    if (rgb_underglow_standalone_want_strip()) {
+        rgb_underglow_ensure_standalone_timer();
     } else {
-        rgb_underglow_teardown_standalone_caps();
+        rgb_underglow_teardown_standalone();
     }
 
     return ZMK_EV_EVENT_BUBBLE;
@@ -369,10 +417,10 @@ static int rgb_underglow_caps_keycode_listener(const zmk_event_t *eh) {
         return ZMK_EV_EVENT_BUBBLE;
     }
 
-    if (rgb_underglow_caps_want_pixel()) {
-        rgb_underglow_ensure_caps_only_timer();
+    if (rgb_underglow_standalone_want_strip()) {
+        rgb_underglow_ensure_standalone_timer();
     } else {
-        rgb_underglow_teardown_standalone_caps();
+        rgb_underglow_teardown_standalone();
     }
 
     return ZMK_EV_EVENT_BUBBLE;
@@ -420,17 +468,27 @@ static void zmk_rgb_underglow_tick(struct k_work *work) {
             rgb_underglow_paint_caps_pixel();
         }
 #endif
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL)
+        rgb_underglow_paint_constant_pixel();
+#endif
     } else {
-#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR)
-        if (!caps_want) {
-            rgb_underglow_teardown_standalone_caps();
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR) || IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL)
+        if (!rgb_underglow_standalone_want_strip()) {
+            rgb_underglow_teardown_standalone();
             return;
         }
 
         for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
             pixels[i] = (struct led_rgb){r : 0, g : 0, b : 0};
         }
-        rgb_underglow_paint_caps_pixel();
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR)
+        if (caps_want) {
+            rgb_underglow_paint_caps_pixel();
+        }
+#endif
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL)
+        rgb_underglow_paint_constant_pixel();
+#endif
 #endif
     }
 
@@ -448,8 +506,8 @@ void zmk_rgb_underglow_request_refresh(void) {
         k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
         return;
     }
-#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR)
-    if (rgb_underglow_caps_want_pixel()) {
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR) || IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL)
+    if (rgb_underglow_standalone_want_strip()) {
         k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
     }
 #endif
@@ -462,8 +520,8 @@ static void zmk_rgb_underglow_tick_handler(struct k_timer *timer) {
         k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
         return;
     }
-#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR)
-    if (rgb_underglow_caps_want_pixel()) {
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR) || IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL)
+    if (rgb_underglow_standalone_want_strip()) {
         k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
     }
 #endif
@@ -489,8 +547,8 @@ static int rgb_settings_set(const char *name, size_t len, settings_read_cb read_
             if (state.on) {
                 k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
             }
-#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR)
-            else if (rgb_underglow_caps_want_pixel()) {
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR) || IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL)
+            else if (rgb_underglow_standalone_want_strip()) {
                 rgb_underglow_ext_power_set(true);
                 k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
                 k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
@@ -560,8 +618,8 @@ static int zmk_rgb_underglow_init(void) {
     if (state.on) {
         k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
     }
-#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR)
-    else if (rgb_underglow_caps_want_pixel()) {
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR) || IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL)
+    else if (rgb_underglow_standalone_want_strip()) {
         rgb_underglow_ext_power_set(true);
         k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
         k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
@@ -628,8 +686,8 @@ int zmk_rgb_underglow_off(void) {
     k_timer_stop(&underglow_tick);
     state.on = false;
 
-#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR)
-    if (rgb_underglow_caps_want_pixel()) {
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CAPS_INDICATOR) || IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_CONSTANT_PIXEL)
+    if (rgb_underglow_standalone_want_strip()) {
         rgb_underglow_ext_power_set(true);
         k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
         k_work_submit_to_queue(zmk_workqueue_lowprio_work_q(), &underglow_tick_work);
