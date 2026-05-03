@@ -78,6 +78,23 @@ static void viera_brightness_fade_work(struct k_work *work) {
     }
 }
 
+void viera_on_backlight_power_changed(uint8_t on) {
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW)
+    if (on) {
+        (void)zmk_rgb_underglow_on();
+        struct zmk_led_hsb c = zmk_rgb_underglow_get_hsb();
+        int b = (atomic_get(&g_current_brt) * ZMK_BRT_MAX) / 100;
+        c.b = (uint8_t)MIN(b, ZMK_BRT_MAX);
+        (void)zmk_rgb_underglow_set_hsb(c);
+        zmk_rgb_underglow_request_refresh();
+    } else {
+        (void)zmk_rgb_underglow_off();
+    }
+#else
+    ARG_UNUSED(on);
+#endif
+}
+
 void viera_on_brightness_changed(uint8_t level) {
     viera_user_brightness_set_target(level);
 }

@@ -34,13 +34,14 @@ LOG_MODULE_REGISTER(viera_gatt, CONFIG_VIERA_GATT_LOG_LEVEL);
 #endif
 
 /* -------- UUIDs (must match the macOS app) --------
-   Service:           8D81E3F5-3F2A-4C60-B3BE-6A9F9D9A8C77
-   EnterBootloader:   3A9C9B0B-5A23-4F27-A5F8-2C34B8A8B0B1
-   FirmwareVersion:   4B3A2F1A-77C9-4A4E-9D01-5E9C1F1B2C3D
+   Service:             8D81E3F5-3F2A-4C60-B3BE-6A9F9D9A8C77
+   EnterBootloader:     3A9C9B0B-5A23-4F27-A5F8-2C34B8A8B0B1
+   FirmwareVersion:     4B3A2F1A-77C9-4A4E-9D01-5E9C1F1B2C3D
+   BacklightPower:      1A2B3C4D-5E6F-7A8B-9C0D-1E2F3A4B5C6D  (1 byte: 0=off, 1=on)
    BacklightBrightness: 2E5E46B7-1B77-41E6-A3B3-DF2E7B7B5AA1
-   BacklightEffect:   B9E1E31E-4C77-4B31-97F4-1B3D2B6C0AA2
-   Color:             7C8A3E4F-2D56-4A89-B1C2-9E3F5A7B8D01
-   Speed:             6D7B4F5E-3C67-5B9A-C2D3-0F4E6B8C9E12
+   BacklightEffect:     B9E1E31E-4C77-4B31-97F4-1B3D2B6C0AA2
+   Color:               7C8A3E4F-2D56-4A89-B1C2-9E3F5A7B8D01
+   Speed:               6D7B4F5E-3C67-5B9A-C2D3-0F4E6B8C9E12
 --------------------------------------------------- */
 
 static struct bt_uuid_128 VIERA_UUID_SVC =
@@ -51,6 +52,9 @@ static struct bt_uuid_128 VIERA_UUID_ENTER =
 
 static struct bt_uuid_128 VIERA_UUID_FWVER =
     BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x4B3A2F1A, 0x77C9, 0x4A4E, 0x9D01, 0x5E9C1F1B2C3D));
+
+static struct bt_uuid_128 VIERA_UUID_PWR =
+    BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x1A2B3C4D, 0x5E6F, 0x7A8B, 0x9C0D, 0x1E2F3A4B5C6D));
 
 static struct bt_uuid_128 VIERA_UUID_BRT =
     BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x2E5E46B7, 0x1B77, 0x41E6, 0xA3B3, 0xDF2E7B7B5AA1));
@@ -65,6 +69,7 @@ static struct bt_uuid_128 VIERA_UUID_SPD =
     BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x6D7B4F5E, 0x3C67, 0x5B9A, 0xC2D3, 0x0F4E6B8C9E12));
 
 /* -------- Weak hooks you can override elsewhere -------- */
+__weak void viera_on_backlight_power_changed(uint8_t on) { ARG_UNUSED(on); }
 __weak void viera_on_brightness_changed(uint8_t level) { ARG_UNUSED(level); }
 __weak void viera_on_effect_changed(uint8_t effect) { ARG_UNUSED(effect); }
 __weak void viera_on_color_changed(uint8_t r, uint8_t g, uint8_t b) {
@@ -130,6 +135,22 @@ static ssize_t enter_write(struct bt_conn *conn, const struct bt_gatt_attr *attr
         /* Defer reboot so the ATT write can complete cleanly. */
         k_work_schedule(&boot_work, K_MSEC(400));
     }
+    return len;
+}
+
+static ssize_t pwr_write(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                         const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
+{
+    ARG_UNUSED(conn); ARG_UNUSED(attr); ARG_UNUSED(offset); ARG_UNUSED(flags);
+    if (len < 1) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+    }
+    uint8_t v = ((const uint8_t *)buf)[0];
+    if (v > 1) {
+        return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
+    }
+    viera_on_backlight_power_changed(v);
+    LOG_DBG("Backlight power -> %u", v);
     return len;
 }
 
@@ -202,6 +223,11 @@ BT_GATT_SERVICE_DEFINE(viera_svc,
     BT_GATT_CHARACTERISTIC(&VIERA_UUID_FWVER.uuid,
                            BT_GATT_CHRC_READ,
                            BT_GATT_PERM_READ, fwver_read, NULL, NULL),
+
+    /* Backlight Power: Write, 0 = off, 1 = on */
+    BT_GATT_CHARACTERISTIC(&VIERA_UUID_PWR.uuid,
+                           BT_GATT_CHRC_WRITE,
+                           BT_GATT_PERM_WRITE, NULL, pwr_write, NULL),
 
     /* Backlight Brightness: Write, 0..100 */
     BT_GATT_CHARACTERISTIC(&VIERA_UUID_BRT.uuid,
