@@ -33,6 +33,10 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include <zmk/ble.h>
 #include <zmk/keys.h>
+#if IS_ENABLED(CONFIG_ZMK_BLE_USB_EXCLUSIVE_TRANSPORT)
+#include <zmk/hog.h>
+#include <zmk/usb.h>
+#endif
 #include <zmk/split/bluetooth/uuid.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/ble_active_profile_changed.h>
@@ -181,6 +185,19 @@ int update_advertising(void) {
     struct bt_conn *conn;
     enum advertising_type desired_adv = ZMK_ADV_NONE;
 
+#if IS_ENABLED(CONFIG_ZMK_BLE_USB_EXCLUSIVE_TRANSPORT) && IS_ENABLED(CONFIG_ZMK_USB)
+    if (zmk_usb_is_hid_ready()) {
+        if (advertising_status != ZMK_ADV_NONE) {
+            err = bt_le_adv_stop();
+            advertising_status = ZMK_ADV_NONE;
+            if (err && err != -EALREADY) {
+                LOG_ERR("Failed to stop advertising for USB HID exclusive mode (err %d)", err);
+            }
+        }
+        return 0;
+    }
+#endif
+
     if (zmk_ble_active_profile_is_open()) {
         desired_adv = ZMK_ADV_CONN;
     } else if (!zmk_ble_active_profile_is_connected()) {
@@ -219,6 +236,18 @@ int update_advertising(void) {
 
     return 0;
 };
+
+#if IS_ENABLED(CONFIG_ZMK_BLE_USB_EXCLUSIVE_TRANSPORT) && IS_ENABLED(CONFIG_ZMK_USB)
+void zmk_ble_apply_usb_hid_host_policy(void) {
+    if (zmk_usb_is_hid_ready()) {
+        zmk_hog_clear_output_queues();
+        for (uint8_t i = 0; i < ZMK_BLE_PROFILE_COUNT; i++) {
+            zmk_ble_prof_disconnect(i);
+        }
+    }
+    update_advertising();
+}
+#endif
 
 static void update_advertising_callback(struct k_work *work) { update_advertising(); }
 
@@ -521,7 +550,14 @@ static void connected(struct bt_conn *conn, uint8_t err) {
 
     LOG_DBG("Connected %s", addr);
 
-    update_advertising();
+#if IS_ENABLED(CONFIG_ZMK_BLE_USB_EXCLUSIVE_TRANSPORT) && IS_ENABLED(CONFIG_ZMK_USB)
+    if (zmk_usb_is_hid_ready()) {
+        zmk_ble_apply_usb_hid_host_policy();
+    } else
+#endif
+    {
+        update_advertising();
+    }
 
     if (is_conn_active_profile(conn)) {
         LOG_DBG("Active profile connected");
@@ -663,6 +699,12 @@ static void auth_pairing_complete(struct bt_conn *conn, bool bonded) {
     }
 
     set_profile_address(active_profile, dst);
+#if IS_ENABLED(CONFIG_ZMK_BLE_USB_EXCLUSIVE_TRANSPORT) && IS_ENABLED(CONFIG_ZMK_USB)
+    if (zmk_usb_is_hid_ready()) {
+        zmk_ble_apply_usb_hid_host_policy();
+        return;
+    }
+#endif
     update_advertising();
 };
 

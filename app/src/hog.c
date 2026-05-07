@@ -335,6 +335,20 @@ void send_keyboard_report_callback(struct k_work *work) {
 
 K_WORK_DEFINE(hog_keyboard_work, send_keyboard_report_callback);
 
+void zmk_hog_clear_output_queues(void) {
+    struct zmk_hid_keyboard_report_body kb;
+    while (k_msgq_get(&zmk_hog_keyboard_msgq, &kb, K_NO_WAIT) == 0) {
+    }
+    struct zmk_hid_consumer_report_body cons;
+    while (k_msgq_get(&zmk_hog_consumer_msgq, &cons, K_NO_WAIT) == 0) {
+    }
+#if IS_ENABLED(CONFIG_ZMK_POINTING)
+    struct zmk_hid_mouse_report_body mouse;
+    while (k_msgq_get(&zmk_hog_mouse_msgq, &mouse, K_NO_WAIT) == 0) {
+    }
+#endif
+}
+
 int zmk_hog_send_keyboard_report(struct zmk_hid_keyboard_report_body *report) {
     int err = k_msgq_put(&zmk_hog_keyboard_msgq, report, K_MSEC(100));
     if (err) {

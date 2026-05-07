@@ -14,6 +14,9 @@
 #include <zmk/hid.h>
 #include <dt-bindings/zmk/hid_usage_pages.h>
 #include <zmk/usb_hid.h>
+#if IS_ENABLED(CONFIG_ZMK_BLE_USB_EXCLUSIVE_TRANSPORT)
+#include <zmk/usb.h>
+#endif
 #include <zmk/hog.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/ble_active_profile_changed.h>
@@ -275,6 +278,11 @@ static bool is_usb_ready(void) {
 
 static bool is_ble_ready(void) {
 #if IS_ENABLED(CONFIG_ZMK_BLE)
+#if IS_ENABLED(CONFIG_ZMK_BLE_USB_EXCLUSIVE_TRANSPORT)
+    if (zmk_usb_is_hid_ready()) {
+        return false;
+    }
+#endif
     return zmk_ble_active_profile_is_connected();
 #else
     return false;
@@ -358,6 +366,13 @@ static void update_current_endpoint(void) {
 }
 
 static int endpoint_listener(const zmk_event_t *eh) {
+#if IS_ENABLED(CONFIG_ZMK_BLE_USB_EXCLUSIVE_TRANSPORT)
+    if (as_zmk_usb_conn_state_changed(eh)) {
+        zmk_ble_apply_usb_hid_host_policy();
+    }
+#else
+    (void)eh;
+#endif
     update_current_endpoint();
     return 0;
 }

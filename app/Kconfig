@@ -239,6 +239,20 @@ config BT_PERIPHERAL_PREF_TIMEOUT
 config BT_DEVICE_NAME_MAX
     default 16
 
+config ZMK_BLE_USB_EXCLUSIVE_TRANSPORT
+    bool "Disconnect BLE host while USB HID data path is active"
+    depends on ZMK_USB
+    help
+      When USB HID is ready for data transfer (device configured for HID, not
+      merely VBUS present), disconnect all Bluetooth host connections, stop
+      connectable advertising, and treat BLE as unavailable for keyboard routing
+      so only USB delivers HID reports. Bonds are preserved; the host may
+      reconnect over BLE after USB disconnect or when the HID interface is no
+      longer configured.
+
+      Wireless split halves use separate ACLs (central role on a split central);
+      they are not disconnected by this option.
+
 endif # ZMK_BLE
 
 endmenu # Output Types
