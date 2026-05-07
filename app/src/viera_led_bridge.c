@@ -17,6 +17,11 @@ LOG_MODULE_REGISTER(viera_led_bridge, CONFIG_LOG_DEFAULT_LEVEL);
 static atomic_t g_target_brt = ATOMIC_INIT(10);
 static atomic_t g_current_brt = ATOMIC_INIT(10);
 
+/* Last-written RGB cache so GATT reads return exactly what the host wrote.
+ * Stored as 0xRRGGBB; sentinel -1 means uninitialized (lazy-seed from HSB).
+ */
+static atomic_t g_color_cache = ATOMIC_INIT(-1);
+
 static void viera_brightness_fade_work(struct k_work *work);
 static struct k_work_delayable g_fade_work;
 
@@ -137,7 +142,46 @@ static void rgb_to_hsb(uint8_t r, uint8_t g, uint8_t b, uint16_t *h, uint8_t *s,
     *h = (uint16_t)hue;
 }
 
+static inline int pack_rgb(uint8_t r, uint8_t g, uint8_t b) {
+    return ((int)r << 16) | ((int)g << 8) | (int)b;
+}
+
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW)
+static void hsb_to_rgb(uint16_t h, uint8_t s, uint8_t br,
+                       uint8_t *r, uint8_t *g, uint8_t *b) {
+    /* h: 0..359, s: 0..100, br: 0..100 */
+    if (h >= 360) h %= 360;
+    if (s > 100) s = 100;
+    if (br > 100) br = 100;
+
+    int v = (br * 255) / 100;
+    if (s == 0) {
+        *r = *g = *b = (uint8_t)v;
+        return;
+    }
+    int region = h / 60;
+    int remainder = (h - region * 60) * 255 / 60;
+    int p = (v * (255 - s * 255 / 100)) / 255;
+    int q = (v * (255 - (s * remainder) / 100)) / 255;
+    int t = (v * (255 - (s * (255 - remainder)) / 100)) / 255;
+
+    int rr = 0, gg = 0, bb = 0;
+    switch (region) {
+    case 0: rr = v; gg = t; bb = p; break;
+    case 1: rr = q; gg = v; bb = p; break;
+    case 2: rr = p; gg = v; bb = t; break;
+    case 3: rr = p; gg = q; bb = v; break;
+    case 4: rr = t; gg = p; bb = v; break;
+    default: rr = v; gg = p; bb = q; break;
+    }
+    *r = (uint8_t)CLAMP(rr, 0, 255);
+    *g = (uint8_t)CLAMP(gg, 0, 255);
+    *b = (uint8_t)CLAMP(bb, 0, 255);
+}
+#endif
+
 void viera_on_color_changed(uint8_t r, uint8_t g, uint8_t b) {
+    atomic_set(&g_color_cache, pack_rgb(r, g, b));
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW)
     uint16_t h;
     uint8_t s, br;
@@ -157,6 +201,74 @@ void viera_on_speed_changed(uint8_t speed) {
     (void)zmk_rgb_underglow_set_speed(speed);
     zmk_rgb_underglow_request_refresh();
     LOG_DBG("Speed -> %u", speed);
+#endif
+}
+
+/* -------- Read-side getters consumed by viera_gatt.c -------- */
+
+int viera_get_power(uint8_t *out) {
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW)
+    *out = zmk_rgb_underglow_is_on() ? 1 : 0;
+    return 0;
+#else
+    ARG_UNUSED(out);
+    return -ENOTSUP;
+#endif
+}
+
+int viera_get_brightness(uint8_t *out) {
+    /* Return the last user-requested level (target), so a write immediately
+     * round-trips through a read even mid-fade. */
+    int v = atomic_get(&g_target_brt);
+    *out = clamp_0_100(v);
+    return 0;
+}
+
+int viera_get_effect(uint8_t *out) {
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW)
+    *out = zmk_rgb_underglow_get_effect();
+    return 0;
+#else
+    ARG_UNUSED(out);
+    return -ENOTSUP;
+#endif
+}
+
+int viera_get_color(uint8_t out[3]) {
+    int v = atomic_get(&g_color_cache);
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW)
+    if (v < 0) {
+        /* Lazy seed: derive RGB from the persisted HSB so the first read
+         * after boot reflects real state. We synthesize at full brightness
+         * because the host's color slider is independent of the brightness
+         * slider; the user_brightness path already handles dimming. */
+        struct zmk_led_hsb c = zmk_rgb_underglow_get_hsb();
+        uint8_t r, g, b;
+        hsb_to_rgb(c.h, c.s, 100, &r, &g, &b);
+        v = pack_rgb(r, g, b);
+        atomic_set(&g_color_cache, v);
+    }
+#else
+    if (v < 0) {
+        v = pack_rgb(255, 255, 255);
+    }
+#endif
+    out[0] = (uint8_t)((v >> 16) & 0xFF);
+    out[1] = (uint8_t)((v >> 8) & 0xFF);
+    out[2] = (uint8_t)(v & 0xFF);
+    return 0;
+}
+
+int viera_get_speed(uint8_t *out) {
+#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW)
+    uint8_t s = zmk_rgb_underglow_get_speed();
+    if (s < 1) s = 1;
+    if (s > 5) s = 5;
+    *out = s;
+    return 0;
+#else
+    ARG_UNUSED(out);
+    return -ENOTSUP;
 #endif
 }
 

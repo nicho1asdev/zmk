@@ -862,6 +862,14 @@ int zmk_rgb_underglow_set_effect(uint8_t idx) {
     return 0;
 }
 
+uint8_t zmk_rgb_underglow_get_effect(void) {
+    return state.current_effect;
+}
+
+uint8_t zmk_rgb_underglow_get_speed(void) {
+    return state.animation_speed;
+}
+
 bool zmk_rgb_underglow_is_on(void) {
     return state.on;
 }

@@ -68,7 +68,7 @@ static struct bt_uuid_128 VIERA_UUID_COLOR =
 static struct bt_uuid_128 VIERA_UUID_SPD =
     BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x6D7B4F5E, 0x3C67, 0x5B9A, 0xC2D3, 0x0F4E6B8C9E12));
 
-/* -------- Weak hooks you can override elsewhere -------- */
+/* -------- Weak write hooks (overridden in viera_led_bridge.c) -------- */
 __weak void viera_on_backlight_power_changed(uint8_t on) { ARG_UNUSED(on); }
 __weak void viera_on_brightness_changed(uint8_t level) { ARG_UNUSED(level); }
 __weak void viera_on_effect_changed(uint8_t effect) { ARG_UNUSED(effect); }
@@ -76,6 +76,17 @@ __weak void viera_on_color_changed(uint8_t r, uint8_t g, uint8_t b) {
     ARG_UNUSED(r); ARG_UNUSED(g); ARG_UNUSED(b);
 }
 __weak void viera_on_speed_changed(uint8_t speed) { ARG_UNUSED(speed); }
+
+/* -------- Weak read hooks (overridden in viera_led_bridge.c) --------
+ * Each returns 0 on success, negative errno on failure. The read attribute
+ * handler will substitute a safe default so the client never sees a stalled
+ * read when the bridge isn't compiled in.
+ */
+__weak int viera_get_power(uint8_t *out)      { ARG_UNUSED(out); return -ENOTSUP; }
+__weak int viera_get_brightness(uint8_t *out) { ARG_UNUSED(out); return -ENOTSUP; }
+__weak int viera_get_effect(uint8_t *out)     { ARG_UNUSED(out); return -ENOTSUP; }
+__weak int viera_get_color(uint8_t out[3])    { ARG_UNUSED(out); return -ENOTSUP; }
+__weak int viera_get_speed(uint8_t *out)      { ARG_UNUSED(out); return -ENOTSUP; }
 
 /* Forward declaration for reboot function */
 static void reboot_to_bootloader(void);
@@ -209,6 +220,69 @@ static ssize_t spd_write(struct bt_conn *conn, const struct bt_gatt_attr *attr,
     return len;
 }
 
+/* -------- Read handlers -------- */
+
+static ssize_t pwr_read(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                        void *buf, uint16_t len, uint16_t offset)
+{
+    uint8_t v = 0;
+    if (viera_get_power(&v) != 0) {
+        v = 0;
+    }
+    if (v > 1) v = 1;
+    LOG_DBG("Read power -> %u", v);
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, &v, sizeof(v));
+}
+
+static ssize_t brt_read(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                        void *buf, uint16_t len, uint16_t offset)
+{
+    uint8_t v = 0;
+    if (viera_get_brightness(&v) != 0) {
+        v = 0;
+    }
+    if (v > 100) v = 100;
+    LOG_DBG("Read brightness -> %u", v);
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, &v, sizeof(v));
+}
+
+static ssize_t eff_read(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                        void *buf, uint16_t len, uint16_t offset)
+{
+    uint8_t v = 0;
+    if (viera_get_effect(&v) != 0) {
+        v = 0;
+    }
+    /* Spec exposes 0..3 only; clamp out-of-range values (e.g. mirror_fill=4)
+     * to the closest in-spec animation so the client never sees a value it
+     * doesn't understand. */
+    if (v > 3) v = 3;
+    LOG_DBG("Read effect -> %u", v);
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, &v, sizeof(v));
+}
+
+static ssize_t color_read(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                          void *buf, uint16_t len, uint16_t offset)
+{
+    uint8_t rgb[3] = {0, 0, 0};
+    (void)viera_get_color(rgb);
+    LOG_DBG("Read color -> R:%u G:%u B:%u", rgb[0], rgb[1], rgb[2]);
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, rgb, sizeof(rgb));
+}
+
+static ssize_t spd_read(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                        void *buf, uint16_t len, uint16_t offset)
+{
+    uint8_t v = 1;
+    if (viera_get_speed(&v) != 0) {
+        v = 1;
+    }
+    if (v < 1) v = 1;
+    if (v > 5) v = 5;
+    LOG_DBG("Read speed -> %u", v);
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, &v, sizeof(v));
+}
+
 /* -------- GATT table -------- */
 
 BT_GATT_SERVICE_DEFINE(viera_svc,
@@ -224,28 +298,33 @@ BT_GATT_SERVICE_DEFINE(viera_svc,
                            BT_GATT_CHRC_READ,
                            BT_GATT_PERM_READ, fwver_read, NULL, NULL),
 
-    /* Backlight Power: Write, 0 = off, 1 = on */
+    /* Backlight Power: Read/Write, 0 = off, 1 = on */
     BT_GATT_CHARACTERISTIC(&VIERA_UUID_PWR.uuid,
-                           BT_GATT_CHRC_WRITE,
-                           BT_GATT_PERM_WRITE, NULL, pwr_write, NULL),
+                           BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
+                           BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
+                           pwr_read, pwr_write, NULL),
 
-    /* Backlight Brightness: Write, 0..100 */
+    /* Backlight Brightness: Read/Write, 0..100 */
     BT_GATT_CHARACTERISTIC(&VIERA_UUID_BRT.uuid,
-                           BT_GATT_CHRC_WRITE,
-                           BT_GATT_PERM_WRITE, NULL, brt_write, NULL),
+                           BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
+                           BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
+                           brt_read, brt_write, NULL),
 
-    /* Backlight Effect: Write, index */
+    /* Backlight Effect: Read/Write, index */
     BT_GATT_CHARACTERISTIC(&VIERA_UUID_EFF.uuid,
-                           BT_GATT_CHRC_WRITE,
-                           BT_GATT_PERM_WRITE, NULL, eff_write, NULL),
+                           BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
+                           BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
+                           eff_read, eff_write, NULL),
 
-    /* Color: Write, 3 bytes (R, G, B) */
+    /* Color: Read/Write, 3 bytes (R, G, B) */
     BT_GATT_CHARACTERISTIC(&VIERA_UUID_COLOR.uuid,
-                           BT_GATT_CHRC_WRITE,
-                           BT_GATT_PERM_WRITE, NULL, color_write, NULL),
+                           BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
+                           BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
+                           color_read, color_write, NULL),
 
-    /* Animation Speed: Write, 1 byte (1-5) */
+    /* Animation Speed: Read/Write, 1 byte (1-5) */
     BT_GATT_CHARACTERISTIC(&VIERA_UUID_SPD.uuid,
-                           BT_GATT_CHRC_WRITE,
-                           BT_GATT_PERM_WRITE, NULL, spd_write, NULL)
+                           BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
+                           BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
+                           spd_read, spd_write, NULL)
 );
