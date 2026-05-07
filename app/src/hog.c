@@ -307,6 +307,14 @@ struct k_work_q hog_work_q;
 K_MSGQ_DEFINE(zmk_hog_keyboard_msgq, sizeof(struct zmk_hid_keyboard_report_body),
               CONFIG_ZMK_BLE_KEYBOARD_REPORT_QUEUE_SIZE, 4);
 
+K_MSGQ_DEFINE(zmk_hog_consumer_msgq, sizeof(struct zmk_hid_consumer_report_body),
+              CONFIG_ZMK_BLE_CONSUMER_REPORT_QUEUE_SIZE, 4);
+
+#if IS_ENABLED(CONFIG_ZMK_POINTING)
+K_MSGQ_DEFINE(zmk_hog_mouse_msgq, sizeof(struct zmk_hid_mouse_report_body),
+              CONFIG_ZMK_BLE_MOUSE_REPORT_QUEUE_SIZE, 4);
+#endif
+
 void send_keyboard_report_callback(struct k_work *work) {
     struct zmk_hid_keyboard_report_body report;
 
@@ -370,9 +378,6 @@ int zmk_hog_send_keyboard_report(struct zmk_hid_keyboard_report_body *report) {
     return 0;
 };
 
-K_MSGQ_DEFINE(zmk_hog_consumer_msgq, sizeof(struct zmk_hid_consumer_report_body),
-              CONFIG_ZMK_BLE_CONSUMER_REPORT_QUEUE_SIZE, 4);
-
 void send_consumer_report_callback(struct k_work *work) {
     struct zmk_hid_consumer_report_body report;
 
@@ -423,9 +428,6 @@ int zmk_hog_send_consumer_report(struct zmk_hid_consumer_report_body *report) {
 };
 
 #if IS_ENABLED(CONFIG_ZMK_POINTING)
-
-K_MSGQ_DEFINE(zmk_hog_mouse_msgq, sizeof(struct zmk_hid_mouse_report_body),
-              CONFIG_ZMK_BLE_MOUSE_REPORT_QUEUE_SIZE, 4);
 
 void send_mouse_report_callback(struct k_work *work) {
     struct zmk_hid_mouse_report_body report;
