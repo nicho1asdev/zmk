@@ -109,7 +109,7 @@ static ssize_t read_hids_report_ref(struct bt_conn *conn, const struct bt_gatt_a
 static ssize_t read_hids_report_map(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                                     void *buf, uint16_t len, uint16_t offset) {
     return bt_gatt_attr_read(conn, attr, buf, len, offset, zmk_hid_report_desc,
-                             sizeof(zmk_hid_report_desc));
+                             ZMK_HOG_REPORT_DESC_SIZE);
 }
 
 static ssize_t read_hids_input_report(struct bt_conn *conn, const struct bt_gatt_attr *attr,
